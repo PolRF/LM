@@ -2,23 +2,11 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from dataclasses import dataclass
+import numpy as np
 
 
 
 
-# batch_size = 256 # how many independent sequences will we process in parallel?
-# block_size = 1024 # what is the maximum context length for predictions?
-# max_iters = 5000
-# eval_interval = 200
-# learning_rate = 3e-5
-# device = 'cuda' if torch.cuda.is_available() else 'cpu'
-# eval_iters = 200
-# n_embd = 768
-# n_head = 12
-# n_layer = 12
-# dropout = 0.2
-
-# head_size = 768//12
 
 @dataclass
 class ModelConfig:
@@ -29,6 +17,13 @@ class ModelConfig:
     n_layer: int = 12
     dropout: float = 0.2
 
+class GELU(nn.Module):
+    """
+    Gaussian Error Linear Unit.
+    """
+    # Implementation following the paper https://arxiv.org/abs/1606.08415
+    def forward(self, x):
+        return 0.5 * x * (1 + torch.tanh((np.sqrt(2 / np.pi) * (x + 0.044715 * torch.pow(x, 3)))))
 
 class DecoderAttentionHead(nn.Module):
     """
@@ -118,7 +113,7 @@ class FFN(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(config.n_embd, 4*config.n_embd),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Linear(4*config.n_embd, config.n_embd),
             nn.Dropout(config.dropout)
         )

@@ -100,7 +100,8 @@ def train(dataset:Dataset):
         lr=6e-5,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     )
-    tr_config.device=torch.device("cpu")
+    # Override device for Macbook pro m2 chip
+    tr_config.device=torch.device("mps")
     max_iters = 60_000
     eval_interval = 200
 

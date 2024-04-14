@@ -6,6 +6,9 @@ This repository is mainly created for educational purposes (mainly my own), with
 
 The main goal of this project is to provide a comprehensive and detailed implementation of the most recent and popular language models, such as GPT-2, Llama 2, Mistral, and others, as well as to provide a detailed explanation of the underlying concepts and mechanisms of these models.
 
+## Best results
+- WIP
+  
 ## Future Work and TODO's
 
 The following are among the planned future works and 'To Do' items for this project:
@@ -13,7 +16,8 @@ The following are among the planned future works and 'To Do' items for this proj
 ### Model/Architecture improvements:
 
 - [x] GPT-2
-- [ ] Implement GeLU instead of RELU
+- [x] Implement GeLU instead of RELU
+- [ ] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
 - [ ] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [ ] Implement RoPE
 - [ ] Implement Mixture of Experts
@@ -22,6 +26,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement the Transformer-XL
 - [ ] Implement Infinite attention (https://arxiv.org/pdf/2404.07143.pdf)
 - [ ] Study if Infinite attention can be implemented on top of pre-trained models like Mixtral of Experts
+- [ ] BitNet: Scaling 1-bit Transformers for Large Language Models (https://arxiv.org/pdf/2310.11453.pdf)
 
 ### Fine-tuning improvements:
 
@@ -43,3 +48,4 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement model parallelism (?)
 - [ ] Implement data parallelism (?)
 - [ ] Implement pipeline parallelism (?)
+
