@@ -10,36 +10,36 @@ The main goal of this project is to provide a comprehensive and detailed impleme
 
 The following are among the planned future works and 'To Do' items for this project:
 
-Model/Architecture improvements:
+### Model/Architecture improvements:
 
 - [x] GPT-2
-- [] Implement GeLU instead of RELU
-- [] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
-- [] Implement RoPE
-- [] Implement Mixture of Experts
-- [] Mamba
-- [] Jamba
-- [] Implement the Transformer-XL
-- [] Implement Infinite attention (https://arxiv.org/pdf/2404.07143.pdf)
-- [] Study if Infinite attention can be implemented on top of pre-trained models like Mixtral of Experts
+- [ ] Implement GeLU instead of RELU
+- [ ] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
+- [ ] Implement RoPE
+- [ ] Implement Mixture of Experts
+- [ ] Mamba
+- [ ] Jamba
+- [ ] Implement the Transformer-XL
+- [ ] Implement Infinite attention (https://arxiv.org/pdf/2404.07143.pdf)
+- [ ] Study if Infinite attention can be implemented on top of pre-trained models like Mixtral of Experts
 
-Fine-tuning improvements:
+### Fine-tuning improvements:
 
-- [] Load pre-trained models
-- [] Implement LoRA
-- [] Implement QLoRA
+- [ ] Load pre-trained models
+- [ ] Implement LoRA
+- [ ] Implement QLoRA
 
-Training improvements:
+### Training improvements:
 
-- [] New SOTA AdamW optimizer
-- [] Dynamic learning rate
-- [] Implement checkpoints
-- [] Better visualization of training metrics
-- [] Implement early stopping
-- [] Implement gradient clipping (?)
-- [] Implement gradient accumulation (?)
-- [] Implement mixed precision training (?)
-- [] Implement distributed training (?)
-- [] Implement model parallelism (?)
-- [] Implement data parallelism (?)
-- [] Implement pipeline parallelism (?)
+- [ ] New SOTA AdamW optimizer
+- [ ] Dynamic learning rate
+- [ ] Implement checkpoints
+- [ ] Better visualization of training metrics
+- [ ] Implement early stopping
+- [ ] Implement gradient clipping (?)
+- [ ] Implement gradient accumulation (?)
+- [ ] Implement mixed precision training (?)
+- [ ] Implement distributed training (?)
+- [ ] Implement model parallelism (?)
+- [ ] Implement data parallelism (?)
+- [ ] Implement pipeline parallelism (?)
