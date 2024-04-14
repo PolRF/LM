@@ -1,0 +1,77 @@
+{
+  "folders": [
+    {
+      "name": "root",
+      "path": "../"
+    }
+  ],
+  "settings": {
+    // For the root folder:
+    "files.exclude": {
+      "**/__pycache__/": true
+    },
+    "search.exclude": {
+      "**/.git": true,
+      "**/node_modules": true,
+      "**/*.sql": true,
+      "**/bower_components": true,
+      "**/__pycache__": true,
+      "**/.vite": true,
+      "**/tmp": true
+    },
+    // For the backend folder:
+    "editor.tabSize": 2, // default
+    "editor.formatOnSave": true,
+    "[python]": {
+      "editor.tabSize": 4,
+      "editor.defaultFormatter": "ms-python.black-formatter",
+      "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+      }
+    },
+    "[html]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "black-formatter.args": [
+      "--line-length",
+      "79",
+      "--target-version",
+      "py311",
+      "--required-version",
+      "24.2.0"
+    ],
+    "pylint.args": ["--disable=E0401,C0114,C0115,C0116"],
+    "editor.rulers": [79],
+    "vim.hlsearch": true,
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.useLibraryCodeForTypes": true,
+    "python.analysis.diagnosticMode": "openFilesOnly",
+    "python.analysis.logLevel": "Information",
+    "python.analysis.diagnosticSeverityOverrides": {
+      "reportIncompatibleVariableOverride": "none"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "tamasfe.even-better-toml",
+      "foxundermoon.shell-format",
+      "streetsidesoftware.code-spell-checker",
+      "mikestead.dotenv",
+      "donjayamanne.githistory",
+      "wholroyd.jinja",
+      // Python things:
+      "ms-python.black-formatter",
+      //"ms-python.vscode-pylance",
+      "ms-python.pylint",
+      // We can't use ruff linter since it doesn't support django stubs
+      //"charliermarsh.ruff",
+      "ms-python.python",
+      "mechatroner.rainbow-csv",
+      // FE Things:
+      "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss",
+      "vscode-icons-team.vscode-icons"
+    ]
+  }
+}
