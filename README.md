@@ -53,3 +53,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement data parallelism (?)
 - [ ] Implement pipeline parallelism (?)
 
+### Observability improvements:
+
+- [ ] Implement Tensorboard
+- [ ] Implement training time metrics
