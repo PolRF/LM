@@ -6,8 +6,12 @@ This repository is mainly created for educational purposes (mainly my own), with
 
 The main goal of this project is to provide a comprehensive and detailed implementation of the most recent and popular language models, such as GPT-2, Llama 2, Mistral, and others, as well as to provide a detailed explanation of the underlying concepts and mechanisms of these models.
 
-## Best results
-- WIP
+## Results
+- GPT:
+  - Context: First training on Lightning.ai with T4 GPU. Small models, no expectation of good results just to test the code.
+  - Dataset: The spanish bible. (bible_es.txt)
+  - Params: 2 layers, 2 heads, 384 embedding size, 50304 vocab size (gpt2 tokenizer), 6e-5 learning rate, 256 block size, 64 batch size.
+  - Results: Steps: 4600, training loss: 2.1826, validation loss: 3.1964
   
 ## Future Work and TODO's
 

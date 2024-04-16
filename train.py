@@ -101,7 +101,7 @@ def train(dataset:Dataset):
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     )
     # Override device for Macbook pro m2 chip
-    tr_config.device=torch.device("mps")
+    # tr_config.device=torch.device("mps")
     max_iters = 60_000
     eval_interval = 200
 
@@ -114,7 +114,7 @@ def train(dataset:Dataset):
     )
 
     model = GPTLM(model_config)
-    model.train()
+    print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
     m = model.to(tr_config.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
     print(f"We are using device: {tr_config.device}")
@@ -137,4 +137,5 @@ def train(dataset:Dataset):
 
 if __name__ == '__main__':
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
     train(Dataset.BIBLE)
