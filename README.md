@@ -41,6 +41,7 @@ The following are among the planned future works and 'To Do' items for this proj
 ### Training improvements:
 
 - [ ] New SOTA AdamW optimizer
+- [ ] Implement flash attention to speed up training
 - [ ] Dynamic learning rate
 - [ ] Implement checkpoints
 - [ ] Better visualization of training metrics
