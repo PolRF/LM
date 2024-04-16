@@ -22,7 +22,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] GPT-2
 - [x] Implement GeLU instead of RELU
 - [ ] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
-- [ ] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
+- [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [ ] Implement RoPE
 - [ ] Implement Mixture of Experts
 - [ ] Mamba
