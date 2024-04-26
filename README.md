@@ -24,7 +24,8 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
 - [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [ ] Implement RoPE
-- [ ] Implement Mixture of Experts
+- [ ] Implement Mixture of Experts (Mixtral)
+- [ ] Implement Grouped Query Attention (GQA, Llama2-3)
 - [ ] Mamba
 - [ ] Jamba
 - [ ] Implement the Transformer-XL
@@ -41,7 +42,9 @@ The following are among the planned future works and 'To Do' items for this proj
 ### Training improvements:
 
 - [ ] New SOTA AdamW optimizer
+- [ ] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
 - [ ] Implement flash attention to speed up training
+- [ ] Implement caching for the attention mechanism (across the model)
 - [ ] Dynamic learning rate
 - [ ] Implement checkpoints
 - [ ] Better visualization of training metrics

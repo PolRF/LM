@@ -25,8 +25,85 @@ class GELU(nn.Module):
     def forward(self, x):
         return 0.5 * x * (1 + torch.tanh((np.sqrt(2 / np.pi) * (x + 0.044715 * torch.pow(x, 3)))))
 
+
+    
+
+def _rope_frequency(head_dim:int,seq_len:int, device:str, theta:float = 10000.0)-> torch.Tensor:
+    """
+    Frequency tensor for the rotary position embedding.
+    θi = 10000^(−2i/d)
+    """
+    assert head_dim % 2 == 0, "The dimension of the frequency tensor must be even"
+    # -2i in vector form is the same of vector starting from 0, until dim with 2 steps
+    #[: (head_dim // 2)] is used subtract the last element if the head_dim is odd
+    numerator = torch.arange(0, head_dim, 2)[: (head_dim // 2)].float()
+    frequencies = 1.0/ (theta ** (numerator / head_dim)).to(device)
+
+
+    # Position
+    p = torch.arange(seq_len, device=device)
+
+    # Multiply each theta by the position (outer product)
+    # This will create a matrix (seq_len, head_dim/2)
+    frequencies = torch.outer(p, frequencies).float()
+
+    # define the same matrix with all 1
+    matrix = torch.ones_like(frequencies)
+    # We then have to construct the polars.
+    f = torch.polar(matrix,frequencies)
+    return f
+
+
+def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
+    """
+    Reshape frequency tensor for broadcasting it with another tensor.
+
+    This function reshapes the frequency tensor to have the same shape as the target tensor 'x'
+    for the purpose of broadcasting the frequency tensor during element-wise operations.
+    """
+
+    ndim = x.ndim
+    # We will reshape the frequency tensor to have the same shape as the input tensor
+    # Get every dimension size of the input tensor and create a new tensor with the same size
+    # on the dimensions that are not the first or the last. The first and last dimensions will be the same
+    # as the input tensor. The rest of the dimensions will be 1.
+    shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
+    return freqs_cis.view(*shape)
+
+def apply_rope(x: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> torch.Tensor:
+    """
+    Apply the rotary position embedding to the input tensor.
+    """
+    # Reshape the input tensor to a complex tensor
+    # (B, Seq_Len, Head_Dim) -> (B, Seq_Len, Head_Dim/2, 2)
+    # x.shape[:-1] is the batch and the sequence length (get the first two dimensions of the tensor)
+    # -1 is used as a placeholder that will automatically be calculated based on the size of the tensor and the remaining dimensions
+    # 2 is the last dimension of the tensor. We will get a vector with size 2 for each element in the tensor
+    # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
+    # will be used as the real and imaginary part of the complex number
+
+    x_complex = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
+    # Maybe we dont need this
+    # freqs_cis = reshape_for_broadcast(freqs_complex, x_complex)
+
+    # We then reshape the frequency complex tensor to match the x_complex tensor
+    # (Seq_Len, Head_Dim/2) -> (1, Seq_Len, 1, Head_Dim/2)
+    # freqs_complex = freqs_complex.unsqueeze(0).unsqueeze(2)
+    # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
+    # Final shape will be (B, Seq_Len, H, Head_Dim/2)
+    x_rotated = x_complex * freqs_complex#freqs_cis
+    # Convert again to real tensor
+    x_out = torch.view_as_real(x_rotated)
+    # Reshape the tensor to the original shape
+    # (B, Seq_Len, H, Head_Dim/2, 2) -> (B, Seq_Len, H, Head_Dim)
+    x_out = x_out.reshape(*x.shape)
+    # Convert the tensor to the original type and move it to the original device
+    return x_out.type_as(x).to(device)
+
+
 class DecoderAttentionHead(nn.Module):
     """
+    Also known as Casual Self Attention.
     This is the attention head that will be used in the decoder.
     The attention head will take the input and compute the attention weights
     based on the query, key, and value.
@@ -46,16 +123,20 @@ class DecoderAttentionHead(nn.Module):
 
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
-    
-    def forward(self,x):
+
+    def forward(self,x:torch.Tensor, rope_freqs:torch.Tensor):
         # batch is the size of the batch
         # tokens is the number of tokens in the sequence
         # head_size is the size of the hidden layer in the attention head
         B,T,C = x.shape # batch, tokens, channels
-
         k = self.k(x) # batch, tokens, head_size
         v = self.v(x) # batch, tokens, head_size
         q = self.q(x) # batch, tokens, head_size
+
+        # Apply the rotary position embedding
+        k = apply_rope(k, rope_freqs, x.device)
+        q = apply_rope(v, rope_freqs, x.device)
+
         # Compute the attention weights
         # k.transpose(1,2) --> batch, head_size, tokens
         # q @ k.transpose(1,2) will compute the dot product of the query and the key.-> batch, tokens, tokens
@@ -97,10 +178,10 @@ class MultiHeadAttention(nn.Module):
         # Define a linear layer to combine the output of the attention heads
         self.linear_projection = nn.Linear(config.n_head * head_size, config.n_embd)
         self.dropout = nn.Dropout(config.dropout)
-    def forward(self, x):
+    def forward(self, x:torch.Tensor, rope_freqs:torch.Tensor):
         # Run each attention head in parallel
         # torch.cat() will concatenate the output of each attention head along the last dimension
-        out = torch.cat([h(x) for h in self.attn_heads], dim=-1)
+        out = torch.cat([h(x, rope_freqs) for h in self.attn_heads], dim=-1)
         out = self.dropout(self.linear_projection(out))
         return out
     
@@ -135,12 +216,18 @@ class AttentionBlock(nn.Module):
         self.ln2 = nn.LayerNorm(config.n_embd)
         self.attn = MultiHeadAttention(config)
         self.ffn = FFN(config)
+        
+        # RoPE
+        # We need to initialize the frequency tensor for the rotary position embedding
+        self.rope_frequencies = _rope_frequency(config.n_embd//2, config.block_size, device="cpu")
     
-    def forward(self,x):
+    def forward(self,x:torch.Tensor ):
+        B, Seq_len, C = x.shape
         # Take into account that we apply the normalization before the attention block
         # This is a modification from original paper Attention is All You Need
         # (a better implementation)
-        x = x + self.attn(self.ln1(x))
+        rope_freqs = self.rope_frequencies#[0:Seq_len]
+        x = x + self.attn(self.ln1(x), rope_freqs)
         x = x + self.ffn(self.ln2(x))
         return x
     
@@ -159,7 +246,7 @@ class GPTLM(nn.Module):
         # The positional embedding is in charge of inferring the relative position of the 
         # tokens in the sequence. This is important because the transformer is not recurrent
         # and does not have the notion of order in the sequence.
-        self.positional_embedding = nn.Embedding(config.block_size, config.n_embd)
+        # DEPRECATED: self.positional_embedding = nn.Embedding(config.block_size, config.n_embd)
         self.blocks = nn.Sequential(*[AttentionBlock(config) for _ in range(config.n_layer)])
         self.ln_f = nn.LayerNorm(config.n_embd) # final layer normalization
         # This is the linear layer that will convert the output of the transformer to the output vocabulary
@@ -181,16 +268,16 @@ class GPTLM(nn.Module):
     
 
     def forward(self, idx, targets=None):
-        B, T = idx.shape
+        B, Seq_len = idx.shape
         # Get the device of the input
         device = idx.device
-        assert T <= self.block_size, f"Cannot forward sequence of length {T}, block size is only {self.block_size}"
+        assert Seq_len <= self.block_size, f"Cannot forward sequence of length {Seq_len}, block size is only {self.block_size}"
 
         # idx and targets are both (B,T) tensor of integers
-        tok_emb = self.token_embedding(idx) # (B,T,C)
-        pos_emb = self.positional_embedding(torch.arange(T, device=device)) # (T,C)
-        # Add the positional embedding to the token embedding
-        x = tok_emb + pos_emb # (B,T,C)
+        x = self.token_embedding(idx) # (B,Seq_len, C)
+        # pos_emb = self.positional_embedding(torch.arange(T, device=device)) # (T,C)
+        # DEPRECATED (we use RoPE Now): Add the positional embedding to the token embedding
+        # x = x + pos_emb # (B,Seq_len,C)
         x = self.blocks(x) # (B,T,C)
         x = self.ln_f(x) # (B,T,C)
         logits = self.lm_head(x)  # (B,T,vocab_size)
@@ -200,10 +287,10 @@ class GPTLM(nn.Module):
         if targets is None:
             loss = None
         else:
-            B, T, C = logits.shape
+            B, Seq_len, C = logits.shape
             # Flatten the logits and the targets
-            logits = logits.view(B*T, C)
-            targets = targets.view(B*T)
+            logits = logits.view(B*Seq_len, C)
+            targets = targets.view(B*Seq_len)
             loss = F.cross_entropy(logits, targets)
         return logits, loss
 
