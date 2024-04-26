@@ -100,7 +100,6 @@ class DecoderAttentionHead(nn.Module):
         # previous tokens and not the future tokens. This will aggregate the means of the previous tokens.
         self.register_buffer("tril", torch.tril(torch.ones(config.block_size, config.block_size)))
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
-        print("Using Flash Attention" if self.flash else "Using Custom Attention")
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
         self.dropout = config.dropout
