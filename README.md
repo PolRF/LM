@@ -23,12 +23,16 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement GeLU instead of RELU
 - [ ] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
 - [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
-- [ ] Implement RoPE
+- [x] Implement RoPE
 - [ ] Implement Mixture of Experts (Mixtral)
 - [ ] Implement Grouped Query Attention (GQA, Llama2-3)
+- [ ] Mistral 7B
+- [ ] Mixtral 8x7B
+- [ ] Llama 2 8B
 - [ ] Mamba
 - [ ] Jamba
 - [ ] Implement the Transformer-XL
+- [ ] Implement linear transformer
 - [ ] Implement Infinite attention (https://arxiv.org/pdf/2404.07143.pdf)
 - [ ] Study if Infinite attention can be implemented on top of pre-trained models like Mixtral of Experts
 - [ ] BitNet: Scaling 1-bit Transformers for Large Language Models (https://arxiv.org/pdf/2310.11453.pdf)
@@ -59,5 +63,6 @@ The following are among the planned future works and 'To Do' items for this proj
 
 ### Observability improvements:
 
-- [ ] Implement Tensorboard
+- [x] Implement Tensorboard
+- [ ] Add tracking of different test-training metrics (params, testing name, time). 
 - [ ] Implement training time metrics

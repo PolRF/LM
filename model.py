@@ -16,6 +16,7 @@ class ModelConfig:
     n_head: int = 12
     n_layer: int = 12
     dropout: float = 0.2
+    device:torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class GELU(nn.Module):
     """
@@ -54,22 +55,6 @@ def _rope_frequency(head_dim:int,seq_len:int, device:str, theta:float = 10000.0)
     return f
 
 
-def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
-    """
-    Reshape frequency tensor for broadcasting it with another tensor.
-
-    This function reshapes the frequency tensor to have the same shape as the target tensor 'x'
-    for the purpose of broadcasting the frequency tensor during element-wise operations.
-    """
-
-    ndim = x.ndim
-    # We will reshape the frequency tensor to have the same shape as the input tensor
-    # Get every dimension size of the input tensor and create a new tensor with the same size
-    # on the dimensions that are not the first or the last. The first and last dimensions will be the same
-    # as the input tensor. The rest of the dimensions will be 1.
-    shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
-    return freqs_cis.view(*shape)
-
 def apply_rope(x: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> torch.Tensor:
     """
     Apply the rotary position embedding to the input tensor.
@@ -81,14 +66,8 @@ def apply_rope(x: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> torch
     # 2 is the last dimension of the tensor. We will get a vector with size 2 for each element in the tensor
     # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
     # will be used as the real and imaginary part of the complex number
-
     x_complex = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
-    # Maybe we dont need this
-    # freqs_cis = reshape_for_broadcast(freqs_complex, x_complex)
 
-    # We then reshape the frequency complex tensor to match the x_complex tensor
-    # (Seq_Len, Head_Dim/2) -> (1, Seq_Len, 1, Head_Dim/2)
-    # freqs_complex = freqs_complex.unsqueeze(0).unsqueeze(2)
     # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
     # Final shape will be (B, Seq_Len, H, Head_Dim/2)
     x_rotated = x_complex * freqs_complex#freqs_cis
@@ -219,7 +198,7 @@ class AttentionBlock(nn.Module):
         
         # RoPE
         # We need to initialize the frequency tensor for the rotary position embedding
-        self.rope_frequencies = _rope_frequency(config.n_embd//2, config.block_size, device="cpu")
+        self.rope_frequencies = _rope_frequency(config.n_embd//2, config.block_size, device=config.device)
     
     def forward(self,x:torch.Tensor ):
         B, Seq_len, C = x.shape

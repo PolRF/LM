@@ -7,6 +7,10 @@ import torch
 from model import ModelConfig, GPTLM
 import numpy as np
 import os
+from torch.utils.tensorboard.writer import SummaryWriter
+
+# Tensorboard logs writers
+writer = SummaryWriter()
 
 BASE_DATA_PATH = './data/'
 
@@ -111,6 +115,7 @@ def train(dataset:Dataset):
         n_head=2,
         n_layer=2,
         n_embd=384,
+        device=tr_config.device
     )
 
     model = GPTLM(model_config)
@@ -123,16 +128,18 @@ def train(dataset:Dataset):
         # every once in a while evaluate the loss on train and val sets
         if iter % eval_interval == 0 or iter == max_iters - 1:
             losses = estimate_loss(m,tr_config,dataset)
+            writer.add_scalar("Loss/test", losses['val'], iter)
             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
         # sample a batch of data
         xb, yb = get_batch('train', tr_config,dataset)
-
         # evaluate the loss
         logits, loss = model(xb, yb)
+        writer.add_scalar("Loss/train", loss, iter)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
+    writer.close()
 
 
 if __name__ == '__main__':
