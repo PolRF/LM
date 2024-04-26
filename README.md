@@ -72,4 +72,4 @@ The following are among the planned future works and 'To Do' items for this proj
 
 - [x] Implement Tensorboard
 - [ ] Add tracking of different test-training metrics (params, testing name, time). 
-- [ ] Implement training time metrics
+- [x] Implement training time metrics

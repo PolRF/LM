@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import time
 from typing import Literal
 import tiktoken
 import torch
@@ -124,12 +125,15 @@ def train(dataset:Dataset):
     optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
     print(f"We are using device: {tr_config.device}")
     # Iterator only
+    start_time = time.time() 
+    durations = []
     for iter in range(max_iters):
+        time_0 = time.time()
         # every once in a while evaluate the loss on train and val sets
         if iter % eval_interval == 0 or iter == max_iters - 1:
             losses = estimate_loss(m,tr_config,dataset)
             writer.add_scalar("Loss/test", losses['val'], iter)
-            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations)}, full time: {time.time()-start_time}" )
 
         # sample a batch of data
         xb, yb = get_batch('train', tr_config,dataset)
@@ -139,6 +143,10 @@ def train(dataset:Dataset):
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
+        time_elapsed = time.time() - time_0
+        writer.add_scalar("time_elapsed", time_elapsed, iter)
+        durations.append(time_elapsed)
+        
     writer.close()
 
 
