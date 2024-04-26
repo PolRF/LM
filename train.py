@@ -10,7 +10,7 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 
 # Tensorboard logs writers
-writer = SummaryWriter()
+writer = SummaryWriter("runs/rope_implemented")
 
 BASE_DATA_PATH = './data/'
 
