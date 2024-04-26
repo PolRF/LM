@@ -15,7 +15,7 @@ The main goal of this project is to provide a comprehensive and detailed impleme
 - GPT+RoPE:
   - Context: Same model but without the positional embedding. I implemented the RoPE (Relative Positional Encoding) instead.
   - Dataset: The spanish bible. (bible_es.txt)
-  - Params: 2 layers, 2 heads, 384 embedding size, 50304 vocab size (gpt2 tokenizer), 6e-5 learning rate, 256 block size, 64 batch size. Total: 42M params.
+  - Params: 2 layers, 2 heads, 384 embedding size, 50304 vocab size (gpt2 tokenizer), 6e-5 learning rate, 256 block size, 64 batch size. Total: 42.31M params.
   - Results: Steps: 4600, training loss: 2.1557, validation loss: 3.1664
   - Conclusions: The model with RoPE is slightly better than the model with positional embeddings. The model with RoPE has a lower training loss and validation loss.
 
