@@ -18,7 +18,9 @@ The main goal of this project is to provide a comprehensive and detailed impleme
   - Params: 2 layers, 2 heads, 384 embedding size, 50304 vocab size (gpt2 tokenizer), 6e-5 learning rate, 256 block size, 64 batch size. Total: 42.31M params.
   - Results: Steps: 4600, training loss: 2.1557, validation loss: 3.1664
   - Conclusions: The model with RoPE is slightly better than the model with positional embeddings. The model with RoPE has a lower training loss and validation loss.
-
+- Added flash attention:
+  - Context: No major improvement (around 1.23 seconds per step). This is because flash attention is more useful for long sequences (not the case here).
+  - Todo: We can test the difference when increasing the model size (and context length).
   
 ## Future Work and TODO's
 
