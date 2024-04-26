@@ -133,7 +133,7 @@ def train(dataset:Dataset):
         if iter % eval_interval == 0 or iter == max_iters - 1:
             losses = estimate_loss(m,tr_config,dataset)
             writer.add_scalar("Loss/test", losses['val'], iter)
-            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations) if len(durations)>0 else 0}, full time: {time.time()-start_time}" )
+            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
 
         # sample a batch of data
         xb, yb = get_batch('train', tr_config,dataset)
