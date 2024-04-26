@@ -54,7 +54,7 @@ The following are among the planned future works and 'To Do' items for this proj
 
 - [ ] New SOTA AdamW optimizer
 - [ ] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
-- [ ] Implement flash attention to speed up training
+- [x] Implement flash attention to speed up training
 - [ ] Implement caching for the attention mechanism (across the model)
 - [ ] Dynamic learning rate
 - [ ] Implement checkpoints

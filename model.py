@@ -99,9 +99,11 @@ class DecoderAttentionHead(nn.Module):
         # is used to mask the upper triangular part of the matrix. We just want the attention to look at the
         # previous tokens and not the future tokens. This will aggregate the means of the previous tokens.
         self.register_buffer("tril", torch.tril(torch.ones(config.block_size, config.block_size)))
-
+        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+        print("Using Flash Attention" if self.flash else "Using Custom Attention")
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
+        self.dropout = config.dropout
 
     def forward(self,x:torch.Tensor, rope_freqs:torch.Tensor):
         # batch is the size of the batch
@@ -115,6 +117,11 @@ class DecoderAttentionHead(nn.Module):
         # Apply the rotary position embedding
         k = apply_rope(k, rope_freqs, x.device)
         q = apply_rope(v, rope_freqs, x.device)
+
+        if self.flash:
+            # Don't apply custom mask as the param is_causal already apply the mask
+            output = torch.nn.functional.scaled_dot_product_attention(q, k, v, None, dropout_p=self.dropout if self.training else 0.0, is_causal=True)
+            return output
 
         # Compute the attention weights
         # k.transpose(1,2) --> batch, head_size, tokens

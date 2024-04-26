@@ -11,7 +11,7 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 
 # Tensorboard logs writers
-writer = SummaryWriter("runs/rope_implemented")
+writer = SummaryWriter("runs/flash_attention")
 
 BASE_DATA_PATH = './data/'
 
