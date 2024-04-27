@@ -125,7 +125,7 @@ class DecoderMultiHeadAttention(nn.Module):
 
         # Apply the rotary position embedding
         k = apply_rope(k, rope_freqs, x.device)
-        q = apply_rope(v, rope_freqs, x.device)
+        q = apply_rope(q, rope_freqs, x.device)
 
         if self.flash:
             # Don't apply custom mask as the param is_causal already apply the mask
