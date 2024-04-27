@@ -33,6 +33,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
 - [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement RoPE
+- [ ] Implement KV-cache
 - [ ] Implement Mixture of Experts (Mixtral)
 - [ ] Implement Grouped Query Attention (GQA)
 - [ ] Sliding Window Attention (SWA)
@@ -75,4 +76,5 @@ The following are among the planned future works and 'To Do' items for this proj
 
 - [x] Implement Tensorboard
 - [ ] Add tracking of different test-training metrics (params, testing name, time). 
+- [ ] Add gpu usage metrics
 - [x] Implement training time metrics
