@@ -16,7 +16,7 @@ The main goal of this project is to provide a comprehensive and detailed impleme
   - Context: Same model but without the positional embedding. I implemented the RoPE (Relative Positional Encoding) instead.
   - Dataset: The spanish bible. (bible_es.txt)
   - Params: 2 layers, 2 heads, 384 embedding size, 50304 vocab size (gpt2 tokenizer), 6e-5 learning rate, 256 block size, 64 batch size. Total: 42.31M params.
-  - Results: Steps: 4600, training loss: 2.1557, validation loss: 3.1664
+  - Results: Steps: 4600, training loss: 2.1387, validation loss: 3.1603
   - Conclusions: The model with RoPE is slightly better than the model with positional embeddings. The model with RoPE has a lower training loss and validation loss.
 - Added flash attention:
   - Context: No major improvement (around 1.23 seconds per step). This is because flash attention is more useful for long sequences (not the case here).
@@ -33,6 +33,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
 - [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement RoPE
+- [ ] Scale the model to visualize better the improvements
 - [ ] Implement KV-cache
 - [ ] Implement Mixture of Experts (Mixtral)
 - [ ] Implement Grouped Query Attention (GQA)
@@ -59,6 +60,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] New SOTA AdamW optimizer
 - [ ] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement flash attention to speed up training
+- [ ] Use a larger dataset to avoid overfitting
 - [ ] Implement caching for the attention mechanism (across the model)
 - [ ] Dynamic learning rate
 - [ ] Implement checkpoints

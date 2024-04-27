@@ -107,7 +107,7 @@ def train(dataset:Dataset):
     )
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
-    max_iters = 60_000
+    max_iters = 5_000
     eval_interval = 200
 
     model_config = ModelConfig(
