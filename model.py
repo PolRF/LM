@@ -80,7 +80,7 @@ def apply_rope(x: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> torch
     return x_out.type_as(x).to(device)
 
 
-class DecoderAttentionHead(nn.Module):
+class DecoderMultiHeadAttention(nn.Module):
     """
     Also known as Casual Self Attention.
     This is the attention head that will be used in the decoder.
@@ -92,14 +92,19 @@ class DecoderAttentionHead(nn.Module):
     def __init__(self, config:ModelConfig):
         super().__init__()
         head_size = config.n_embd // config.n_head
-        self.k = nn.Linear(config.n_embd, head_size, bias=False)
-        self.v = nn.Linear(config.n_embd, head_size, bias=False)
-        self.q = nn.Linear(config.n_embd, head_size, bias=False)
+        # Instead of defining the linear layers for the query, key, and value separately
+        # we define a single linear layer that will output the query, key, and value.
+        # This is done to improve the performance of the model.
+        self.att = nn.Linear(config.n_embd, config.n_embd*3, bias=False)
+        self.n_head = config.n_head
         # Register buffer as it is not a parameter. The ones with the tril (lower triangular) matrix with 1s
         # is used to mask the upper triangular part of the matrix. We just want the attention to look at the
         # previous tokens and not the future tokens. This will aggregate the means of the previous tokens.
         self.register_buffer("tril", torch.tril(torch.ones(config.block_size, config.block_size)))
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+
+        self.linear_projection = nn.Linear(config.n_embd, config.n_embd)
+        self.projection_dropout = nn.Dropout(config.dropout)
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
         self.dropout = config.dropout
@@ -109,67 +114,58 @@ class DecoderAttentionHead(nn.Module):
         # tokens is the number of tokens in the sequence
         # head_size is the size of the hidden layer in the attention head
         B,T,C = x.shape # batch, tokens, channels
-        k = self.k(x) # batch, tokens, head_size
-        v = self.v(x) # batch, tokens, head_size
-        q = self.q(x) # batch, tokens, head_size
+        # Split the output of the linear layer into query, key, and value
+        # The output of the linear layer will be of size (B, T, C)
+        k,q,v = self.att(x).chunk(3, dim=-1)
+        # Modify each vector to fit the shape including the head size
+        k = k.view(B, T, self.n_head,C//self.n_head ).transpose(1,2) # batch, head size, tokens, channels // head size
+        q = q.view(B, T, self.n_head,C//self.n_head ).transpose(1,2) # batch, head size, tokens, channels // head size
+        v = v.view(B, T, self.n_head,C//self.n_head ).transpose(1,2) # batch, head size, tokens, channels // head size
+
 
         # Apply the rotary position embedding
         k = apply_rope(k, rope_freqs, x.device)
         q = apply_rope(v, rope_freqs, x.device)
 
-        if self.flash:
+        if not self.flash:
             # Don't apply custom mask as the param is_causal already apply the mask
             output = torch.nn.functional.scaled_dot_product_attention(q, k, v, None, dropout_p=self.dropout if self.training else 0.0, is_causal=True)
-            return output
+            # batch, head_size, tokens, channels // head_size
+        else:
 
-        # Compute the attention weights
-        # k.transpose(1,2) --> batch, head_size, tokens
-        # q @ k.transpose(1,2) will compute the dot product of the query and the key.-> batch, tokens, tokens
-        # Here is where the magic happens. We compute the attention weights by taking the dot product of the query
-        # and the key. We then divide by the square root of the head size. This is the scaled dot product attention. 
-        wei = q @ k.transpose(1,2) * (k.shape[-1] ** -0.5) # batch, tokens, tokens
+            # Compute the attention weights
+            # k.transpose(2,3) --> batch, head_size, tokens, channels // head_size
+            # q @ k.transpose(2,3) will compute the dot product of the query and the key.-> batch, head_size, tokens, tokens
+            # Here is where the magic happens. We compute the attention weights by taking the dot product of the query
+            # and the key. We then divide by the square root of the head size. This is the scaled dot product attention. 
+            wei = (q @ k.transpose(2,3)) * (k.shape[-1] ** -0.5) # batch, head_size, tokens, tokens
+            # we have to mask the upper triangular part of the matrix
+            # we do this by adding a large negative number to the places we want to mask
+            # and then take the softmax of the matrix. 
+            # This is done so that the softmax of the upper triangular part of the matrix is 0 when softmaxed
+            # and the other parts are not affected.
+            # self.tril[:T, :T] == 0 will return a matrix of the same size as wei with 1s (True) in the upper triangular part
+            # masked_fill() will replace the 1s (True) with -inf.
+            wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # batch, head_size, tokens, tokens
 
-        # we have to mask the upper triangular part of the matrix
-        # we do this by adding a large negative number to the places we want to mask
-        # and then take the softmax of the matrix. 
-        # This is done so that the softmax of the upper triangular part of the matrix is 0 when softmaxed
-        # and the other parts are not affected.
-        # self.tril[:T, :T] == 0 will return a matrix of the same size as wei with 1s (True) in the upper triangular part
-        # masked_fill() will replace the 1s (True) with -inf.
-        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # (B, T, T)
+            # apply softmax and dropout
+            # apply the softmax to the last dimension of the matrix
+            wei = F.softmax(wei, dim=-1) # batch, head_size, tokens, tokens
+            wei = self.attn_dropout(wei)
 
-        # apply softmax and dropout
-        # apply the softmax to the last dimension of the matrix
-        wei = F.softmax(wei, dim=-1) # batch, tokens, tokens
-        wei = self.attn_dropout(wei)
-
-        # This means that values will pass through the attention head and the output will be the weighted sum of the values
-        # based on the attention weights. 
-        output = wei @ v # batch, tokens, head_size
-
+            # This means that values will pass through the attention head and the output will be the weighted sum of the values
+            # based on the attention weights. 
+            output = wei @ v # batch, head_size, tokens, channels // head_size
+        # First we need to reshape again the output of the attention head
+        # Reshape the output of the attention head to the original shape
+        # (B, T, H, C//H) -> (B, T, C)
+        # Use contiguous() to make sure that the tensor is stored in a contiguous block of memory
+        output = output.transpose(1,2).contiguous().view(B, T, C)
+        # Apply the linear projection to combine the output of the attention heads
+        output = self.projection_dropout(self.linear_projection(output))
         return output
 
 
-class MultiHeadAttention(nn.Module):
-    """
-    Multihead attention is the concatenation of multiple attention heads.
-    The attention heads are run in parallel and the outputs are concatenated.
-    """
-    def __init__(self, config:ModelConfig):
-        super().__init__()
-        head_size = config.n_embd // config.n_head
-        # Define a list of modules. Each module is an attention head. Create n_head attention heads
-        self.attn_heads = nn.ModuleList([DecoderAttentionHead(config) for _ in range(config.n_head)])
-        # Define a linear layer to combine the output of the attention heads
-        self.linear_projection = nn.Linear(config.n_head * head_size, config.n_embd)
-        self.dropout = nn.Dropout(config.dropout)
-    def forward(self, x:torch.Tensor, rope_freqs:torch.Tensor):
-        # Run each attention head in parallel
-        # torch.cat() will concatenate the output of each attention head along the last dimension
-        out = torch.cat([h(x, rope_freqs) for h in self.attn_heads], dim=-1)
-        out = self.dropout(self.linear_projection(out))
-        return out
-    
 
 class FFN(nn.Module):
     """
@@ -199,7 +195,7 @@ class AttentionBlock(nn.Module):
         super().__init__()
         self.ln1 = nn.LayerNorm(config.n_embd)
         self.ln2 = nn.LayerNorm(config.n_embd)
-        self.attn = MultiHeadAttention(config)
+        self.attn = DecoderMultiHeadAttention(config)
         self.ffn = FFN(config)
         
         # RoPE
