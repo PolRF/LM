@@ -127,7 +127,7 @@ class DecoderMultiHeadAttention(nn.Module):
         k = apply_rope(k, rope_freqs, x.device)
         q = apply_rope(v, rope_freqs, x.device)
 
-        if not self.flash:
+        if self.flash:
             # Don't apply custom mask as the param is_causal already apply the mask
             output = torch.nn.functional.scaled_dot_product_attention(q, k, v, None, dropout_p=self.dropout if self.training else 0.0, is_causal=True)
             # batch, head_size, tokens, channels // head_size
