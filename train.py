@@ -9,9 +9,9 @@ from model import ModelConfig, GPTLM
 import numpy as np
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
-
+from data.openwebtext import prepare as prepare_openwebtext
 # Tensorboard logs writers
-writer = SummaryWriter("runs/unified_multihead_attention")
+writer = SummaryWriter("runs/openwebtext_dataset")
 
 BASE_DATA_PATH = './data/'
 
@@ -28,6 +28,7 @@ class TrainConfig:
 class Dataset(Enum):
     BIBLE = 'bible'
     SHAKESPEARE = 'shakespeare'
+    OPENWEBTEXT = 'openwebtext'
 
 
 def prepare_data(dataset:Dataset):
@@ -41,6 +42,9 @@ def prepare_data(dataset:Dataset):
         case Dataset.SHAKESPEARE:
             path = 'shakespeare.txt'
             encoding = "utf-8"
+        case Dataset.OPENWEBTEXT:
+            prepare_openwebtext.prepare()
+            return
 
     data = open(BASE_DATA_PATH+path,encoding=encoding).read()
     n = len(data)
@@ -61,7 +65,7 @@ def prepare_data(dataset:Dataset):
     print("Data prepared")
 
 def get_batch(split, config: TrainConfig,dataset:Dataset):
-    data_path = BASE_DATA_PATH+dataset.name+"/"
+    data_path = BASE_DATA_PATH+dataset.name.lower()+"/"
     if not os.path.isfile(data_path+"train.bin") or not os.path.isfile(data_path+"val.bin"):
         prepare_data(dataset)
     
@@ -153,4 +157,4 @@ def train(dataset:Dataset):
 if __name__ == '__main__':
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
     os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
-    train(Dataset.BIBLE)
+    train(Dataset.OPENWEBTEXT)

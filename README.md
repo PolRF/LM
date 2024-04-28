@@ -21,7 +21,16 @@ The main goal of this project is to provide a comprehensive and detailed impleme
 - Added flash attention:
   - Context: No major improvement (around 1.23 seconds per step). This is because flash attention is more useful for long sequences (not the case here).
   - Todo: We can test the difference when increasing the model size (and context length).
-  
+- Openweb dataset:
+  - Context: New dataset with much larger amount of tokens to minimize the disparity between training and val loss. Also, I started using lightning L4 GPU with 24gb of ram. With no changes on the hyperparams, the training usage is around 18.5gb.
+  - Dataset: Openwebtext
+  - Params: 2 layers, 2 heads, 384 embedding size, 50304 vocab size (gpt2 tokenizer), 6e-5 learning rate, 256 block size, 64 batch size. Total: 42.31M params.
+  - Results: step 4600: train loss 5.3644, val loss 5.3708, time (s): 0.68788, full time: 3220.8362
+  - Conclusions: The results are what I expected. 
+    1. Minimal difference between train and validation loss which indicates that the larger dataset helps avoiding overgitting. 
+    2. Larger dataset increase the number of steps to achive similar tran-val losses.
+    3. Increasing the gpu helped with time per step from 1.23s recurrent to a decaying time per step from 0.75 to 0.68 (not sure why the time decays along the steps).
+
 ## Future Work and TODO's
 
 The following are among the planned future works and 'To Do' items for this project:
@@ -60,7 +69,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] New SOTA AdamW optimizer
 - [ ] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement flash attention to speed up training
-- [ ] Use a larger dataset to avoid overfitting
+- [x] Use a larger dataset to avoid overfitting
 - [ ] Implement caching for the attention mechanism (across the model)
 - [ ] Dynamic learning rate
 - [ ] Implement checkpoints
