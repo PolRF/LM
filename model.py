@@ -40,7 +40,6 @@ def _rope_frequency(head_dim:int,seq_len:int, device:str, theta:float = 10000.0)
     numerator = torch.arange(0, head_dim, 2)[: (head_dim // 2)].float()
     frequencies = 1.0/ (theta ** (numerator / head_dim)).to(device)
 
-
     # Position
     p = torch.arange(seq_len, device=device)
 
@@ -66,11 +65,11 @@ def apply_rope(x: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> torch
     # 2 is the last dimension of the tensor. We will get a vector with size 2 for each element in the tensor
     # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
     # will be used as the real and imaginary part of the complex number
-    x_complex = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
+    x_complex = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2)) 
 
     # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
     # Final shape will be (B, Seq_Len, H, Head_Dim/2)
-    x_rotated = x_complex * freqs_complex#freqs_cis
+    x_rotated = x_complex * freqs_complex
     # Convert again to real tensor
     x_out = torch.view_as_real(x_rotated)
     # Reshape the tensor to the original shape
@@ -103,7 +102,7 @@ class DecoderMultiHeadAttention(nn.Module):
         self.register_buffer("tril", torch.tril(torch.ones(config.block_size, config.block_size)))
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
 
-        self.linear_projection = nn.Linear(config.n_embd, config.n_embd)
+        self.linear_projection = nn.Linear(config.n_embd, config.n_embd, bias=False)
         self.projection_dropout = nn.Dropout(config.dropout)
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
@@ -174,9 +173,9 @@ class FFN(nn.Module):
     def __init__(self, config:ModelConfig):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(config.n_embd, 4*config.n_embd),
+            nn.Linear(config.n_embd, 4*config.n_embd, bias=False),
             nn.GELU(),
-            nn.Linear(4*config.n_embd, config.n_embd),
+            nn.Linear(4*config.n_embd, config.n_embd, bias=False),
             nn.Dropout(config.dropout)
         )
         
@@ -200,7 +199,7 @@ class AttentionBlock(nn.Module):
         
         # RoPE
         # We need to initialize the frequency tensor for the rotary position embedding
-        self.rope_frequencies = _rope_frequency(config.n_embd//2, config.block_size, device=config.device)
+        self.rope_frequencies = _rope_frequency(config.n_embd//config.n_head, config.block_size, device=config.device)
     
     def forward(self,x:torch.Tensor ):
         B, Seq_len, C = x.shape
