@@ -126,6 +126,7 @@ def train(dataset:Dataset):
     model = GPTLM(model_config)
     print(model)
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
+    raise
     m = model.to(tr_config.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
     print(f"We are using device: {tr_config.device}")
