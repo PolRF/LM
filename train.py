@@ -104,7 +104,7 @@ def train(dataset:Dataset):
     
     tr_config = TrainConfig(
         batch_size=64,
-        block_size=256,
+        block_size=1024,
         eval_iters=200,
         lr=6e-5,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -112,18 +112,19 @@ def train(dataset:Dataset):
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
     max_iters = 5_000
-    eval_interval = 200
+    eval_interval = 500
 
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=tr_config.block_size,
-        n_head=2,
-        n_layer=2,
-        n_embd=384,
+        # n_head=2,
+        # n_layer=2,
+        # n_embd=384,
         device=tr_config.device
     )
 
     model = GPTLM(model_config)
+    print(model)
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
     m = model.to(tr_config.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
