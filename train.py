@@ -156,8 +156,20 @@ def train(dataset:Dataset):
         
     writer.close()
 
+def test_generation():
+    model = from_pretrained_gpt2()
+    model.eval()
+    print("Model loaded")
+    enc = tiktoken.get_encoding("gpt2")
+    context = "The quick brown fox jumps over the lazy dog"
+    context = enc.encode_ordinary(context)
+    context = torch.tensor(context, dtype=torch.long).unsqueeze(0)
+    context = context.to("cuda")
+    out = model.generate(context, 100)
+    print(enc.decode(out[0].cpu().numpy()))
 
 if __name__ == '__main__':
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
     os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
-    train(Dataset.OPENWEBTEXT)
+    # train(Dataset.OPENWEBTEXT)
+    test_generation()
