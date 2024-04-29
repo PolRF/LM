@@ -207,7 +207,7 @@ class AttentionBlock(nn.Module):
         # Take into account that we apply the normalization before the attention block
         # This is a modification from original paper Attention is All You Need
         # (a better implementation)
-        rope_freqs = self.rope_frequencies#[0:Seq_len]
+        rope_freqs = self.rope_frequencies[0:Seq_len]
         x = x + self.attn(self.ln1(x), rope_freqs)
         x = x + self.ffn(self.ln2(x))
         return x

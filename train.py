@@ -158,6 +158,7 @@ def train(dataset:Dataset):
 
 def test_generation():
     model = from_pretrained_gpt2()
+    model = model.to("cuda")
     model.eval()
     print("Model loaded")
     enc = tiktoken.get_encoding("gpt2")
