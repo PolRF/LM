@@ -5,6 +5,7 @@ from typing import Literal
 import tiktoken
 import torch
 
+from load import from_pretrained_gpt2
 from model import ModelConfig, GPTLM
 import numpy as np
 import os
@@ -22,6 +23,7 @@ class TrainConfig:
     eval_iters: int
     lr: float
     device: torch.device
+    from_pretrained: bool = False
 
 
 
@@ -124,6 +126,8 @@ def train(dataset:Dataset):
 
     model = GPTLM(model_config)
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
+    if tr_config.from_pretrained:
+        model = from_pretrained_gpt2()
     m = model.to(tr_config.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
     print(f"We are using device: {tr_config.device}")

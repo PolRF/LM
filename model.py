@@ -96,13 +96,14 @@ class DecoderMultiHeadAttention(nn.Module):
         # This is done to improve the performance of the model.
         self.att = nn.Linear(config.n_embd, config.n_embd*3, bias=False)
         self.n_head = config.n_head
-        # Register buffer as it is not a parameter. The ones with the tril (lower triangular) matrix with 1s
-        # is used to mask the upper triangular part of the matrix. We just want the attention to look at the
-        # previous tokens and not the future tokens. This will aggregate the means of the previous tokens.
-        self.register_buffer("tril", torch.tril(torch.ones(config.block_size, config.block_size)))
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+        if not self.flash:
+            # Register buffer as it is not a parameter. The ones with the tril (lower triangular) matrix with 1s
+            # is used to mask the upper triangular part of the matrix. We just want the attention to look at the
+            # previous tokens and not the future tokens. This will aggregate the means of the previous tokens.
+            self.register_buffer("tril", torch.tril(torch.ones(config.block_size, config.block_size)))
 
-        self.linear_projection = nn.Linear(config.n_embd, config.n_embd, bias=False)
+        self.linear_projection = nn.Linear(config.n_embd, config.n_embd, bias=True)
         self.projection_dropout = nn.Dropout(config.dropout)
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
@@ -173,9 +174,9 @@ class FFN(nn.Module):
     def __init__(self, config:ModelConfig):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(config.n_embd, 4*config.n_embd, bias=False),
+            nn.Linear(config.n_embd, 4*config.n_embd, bias=True),
             nn.GELU(),
-            nn.Linear(4*config.n_embd, config.n_embd, bias=False),
+            nn.Linear(4*config.n_embd, config.n_embd, bias=True),
             nn.Dropout(config.dropout)
         )
         
@@ -227,11 +228,11 @@ class GPTLM(nn.Module):
         # tokens in the sequence. This is important because the transformer is not recurrent
         # and does not have the notion of order in the sequence.
         # DEPRECATED: self.positional_embedding = nn.Embedding(config.block_size, config.n_embd)
-        self.blocks = nn.Sequential(*[AttentionBlock(config) for _ in range(config.n_layer)])
+        self.blocks = nn.ModuleList([AttentionBlock(config) for _ in range(config.n_layer)])
         self.ln_f = nn.LayerNorm(config.n_embd) # final layer normalization
         # This is the linear layer that will convert the output of the transformer to the output vocabulary
         # later, we will convert the int to the respective text token.
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
         # This is totally copypaste from the Karpathy's implementation.
         # We need to initialize the weights of the Linear layers and the Embedding layers
@@ -258,7 +259,8 @@ class GPTLM(nn.Module):
         # pos_emb = self.positional_embedding(torch.arange(T, device=device)) # (T,C)
         # DEPRECATED (we use RoPE Now): Add the positional embedding to the token embedding
         # x = x + pos_emb # (B,Seq_len,C)
-        x = self.blocks(x) # (B,T,C)
+        for block in self.blocks:
+            x = block(x)
         x = self.ln_f(x) # (B,T,C)
         logits = self.lm_head(x)  # (B,T,vocab_size)
         

@@ -62,7 +62,7 @@ The following are among the planned future works and 'To Do' items for this proj
 
 ### Fine-tuning improvements:
 
-- [ ] Load pre-trained models
+- [x] Load pre-trained models
 - [ ] Implement LoRA
 - [ ] Implement QLoRA
 
