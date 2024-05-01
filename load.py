@@ -1,3 +1,4 @@
+from typing import Literal
 import torch
 from transformers import GPT2LMHeadModel
 
@@ -18,7 +19,7 @@ def check_mapping(gpt2_key_name:str):
     return gpt2_key_name
      
 
-def from_pretrained_gpt2():
+def from_pretrained_gpt2(device:torch.device) -> GPTLM:
 
     model_config = ModelConfig(
         vocab_size=50257,
@@ -26,7 +27,7 @@ def from_pretrained_gpt2():
         # n_head=4,
         # n_layer=4,
         # n_embd=384,
-        device=torch.device("cpu"),
+        device=device,
         dropout=0.1,
     )
 

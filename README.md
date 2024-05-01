@@ -27,10 +27,13 @@ The main goal of this project is to provide a comprehensive and detailed impleme
   - Params: 2 layers, 2 heads, 384 embedding size, 50304 vocab size (gpt2 tokenizer), 6e-5 learning rate, 256 block size, 64 batch size. Total: 42.31M params.
   - Results: step 4600: train loss 5.3644, val loss 5.3708, time (s): 0.68788, full time: 3220.8362
   - Conclusions: The results are what I expected. 
-    1. Minimal difference between train and validation loss which indicates that the larger dataset helps avoiding overgitting. 
+    1. Minimal difference between train and validation loss which indicates that the larger dataset helps avoid overfitting.
     2. Larger dataset increase the number of steps to achive similar tran-val losses.
     3. Increasing the gpu helped with time per step from 1.23s recurrent to a decaying time per step from 0.75 to 0.68 (not sure why the time decays along the steps).
-
+- Added microbatching:
+  - Context: The model (gpt2-160M params) was too large for the gpu memory (24gb). I added microbatching to avoid this issue. Now batch size is 12 and gradient accumulation steps is 40.
+  - Results: step 500: train loss 5.7003, val loss 5.7132, time (s): 23.80275, full time: 11990.43904. 
+  - Conclusions: The model now is able to run in a single L4 gpu (24gb ram) only using 13gb. But the time per step is now 23s. This is because the model is now processing 40 steps before updating the weights. This is a tradeoff between memory and time. We have to lower the time per step and augment the usage of the gpu memory. Logging the info per step, I can see that the time per step decays from 138s to 67s in just 9 steps. This can be due to the fact that the model is learning and the gradients are getting smaller. Lets try to load the gpt-2 checkpoints and see if the model starts with a lower time per step.
 ## Future Work and TODO's
 
 The following are among the planned future works and 'To Do' items for this project:
@@ -42,6 +45,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
 - [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement RoPE
+- [ ] Improve the RoPE implementation to apply the rotation to both the queries and keys at the same time
 - [ ] Research (and implement?) weight tying (https://arxiv.org/pdf/1608.05859.pdf)
 - [ ] Implement "model surgery to decrease the block size"
 - [ ] Scale the model to visualize better the improvements

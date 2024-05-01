@@ -120,8 +120,8 @@ def train(dataset:Dataset):
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=tr_config.block_size,
-        n_head=4,
-        n_layer=4,
+        # n_head=4,
+        # n_layer=4,
         # n_embd=384,
         device=tr_config.device
     )
@@ -129,7 +129,7 @@ def train(dataset:Dataset):
     model = GPTLM(model_config)
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
     if tr_config.from_pretrained:
-        model = from_pretrained_gpt2()
+        model = from_pretrained_gpt2(tr_config.device)
     m = model.to(tr_config.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
     print(f"We are using device: {tr_config.device}")
@@ -147,12 +147,15 @@ def train(dataset:Dataset):
             writer.add_scalar("Loss/test", losses['val'], iter)
             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
 
+        last_loss = None
         for micro_step in range(tr_config.gradient_accumulation_steps):
             logits, loss = model(xb, yb)
-            writer.add_scalar("Loss/train", loss, iter)
+            last_loss = loss
             loss = loss / tr_config.gradient_accumulation_steps
             xb, yb = get_batch('train', tr_config,dataset)
             loss.backward()
+        writer.add_scalar("Loss/train", last_loss, iter)
+        print(f"step {iter}: train loss {last_loss:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}" )
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0
@@ -165,7 +168,7 @@ def train(dataset:Dataset):
     writer.close()
 
 def test_generation():
-    model = from_pretrained_gpt2()
+    model = from_pretrained_gpt2(torch.device("cuda"))
     model = model.to("cuda")
     model.eval()
     print("Model loaded")
@@ -180,5 +183,5 @@ def test_generation():
 if __name__ == '__main__':
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
     os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
-    # train(Dataset.OPENWEBTEXT)
-    test_generation()
+    train(Dataset.OPENWEBTEXT)
+    # test_generation()
