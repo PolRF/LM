@@ -74,11 +74,12 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Use a larger dataset to avoid overfitting
 - [ ] Implement caching for the attention mechanism (across the model)
 - [ ] Dynamic learning rate
-- [ ] Implement checkpoints
+- [ ] Implement gradient checkpointing to reduce memory usage
+- [ ] Implement model checkpoint saving for resuming training
 - [ ] Better visualization of training metrics
 - [ ] Implement early stopping
 - [ ] Implement gradient clipping (?)
-- [ ] Implement gradient accumulation (?)
+- [x] Implement gradient accumulation (micro-batching)
 - [ ] Implement mixed precision training (?)
 - [ ] Implement distributed training (?)
 - [ ] Implement model parallelism (?)

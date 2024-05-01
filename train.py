@@ -18,11 +18,12 @@ BASE_DATA_PATH = './data/'
 
 @dataclass
 class TrainConfig:
-    batch_size: int
+    batch_size: int # if gradient_accumulation_steps is >1, then this is the mini-batch size
     block_size: int
     eval_iters: int
     lr: float
     device: torch.device
+    gradient_accumulation_steps: int = 5 * 8
     from_pretrained: bool = False
 
 
@@ -105,11 +106,12 @@ def estimate_loss(model, config: TrainConfig,dataset:Dataset):
 def train(dataset:Dataset):
     
     tr_config = TrainConfig(
-        batch_size=64,
+        batch_size=12,
         block_size=512,
         eval_iters=200,
         lr=6e-5,
-        device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+        gradient_accumulation_steps=5*8,
     )
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
@@ -134,7 +136,10 @@ def train(dataset:Dataset):
     # Iterator only
     start_time = time.time() 
     durations = []
-    for iter in range(max_iters):
+    iter = 0
+    # Init the first batch
+    xb, yb = get_batch('train', tr_config,dataset)
+    while True:
         time_0 = time.time()
         # every once in a while evaluate the loss on train and val sets
         if iter % eval_interval == 0 or iter == max_iters - 1:
@@ -142,17 +147,20 @@ def train(dataset:Dataset):
             writer.add_scalar("Loss/test", losses['val'], iter)
             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
 
-        # sample a batch of data
-        xb, yb = get_batch('train', tr_config,dataset)
-        # evaluate the loss
-        logits, loss = model(xb, yb)
-        writer.add_scalar("Loss/train", loss, iter)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
+        for micro_step in range(tr_config.gradient_accumulation_steps):
+            logits, loss = model(xb, yb)
+            writer.add_scalar("Loss/train", loss, iter)
+            loss = loss / tr_config.gradient_accumulation_steps
+            xb, yb = get_batch('train', tr_config,dataset)
+            loss.backward()
         optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0
         writer.add_scalar("time_elapsed", time_elapsed, iter)
         durations.append(time_elapsed)
+        iter += 1
+        if iter >= max_iters:
+            break
         
     writer.close()
 
