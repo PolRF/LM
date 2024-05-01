@@ -12,7 +12,7 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from data.openwebtext import prepare as prepare_openwebtext
 # Tensorboard logs writers
-writer = SummaryWriter("runs/openwebtext_dataset")
+writer = SummaryWriter("runs/pretrained_gpt2_openwebtext")
 
 BASE_DATA_PATH = './data/'
 
@@ -112,6 +112,7 @@ def train(dataset:Dataset):
         lr=6e-5,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         gradient_accumulation_steps=5*8,
+        from_pretrained=True
     )
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
