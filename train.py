@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
 import time
-from typing import Literal
 import tiktoken
 import torch
 
