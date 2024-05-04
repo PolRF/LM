@@ -12,7 +12,7 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from data.openwebtext import prepare as prepare_openwebtext
 # Tensorboard logs writers
-writer = SummaryWriter("runs/pretrained_gpt2_openwebtext")
+writer = SummaryWriter("runs/ler_decay")
 
 BASE_DATA_PATH = './data/'
 
