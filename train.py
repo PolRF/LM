@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import math
 import time
 import tiktoken
 import torch
@@ -20,7 +21,11 @@ class TrainConfig:
     batch_size: int # if gradient_accumulation_steps is >1, then this is the mini-batch size
     block_size: int
     eval_iters: int
+    init_lr: float
     lr: float
+    min_lr: float
+    lr_decay_iters:int
+    warmup_iters:int
     device: torch.device
     gradient_accumulation_steps: int = 5 * 8
     from_pretrained: bool = False
@@ -101,14 +106,30 @@ def estimate_loss(model, config: TrainConfig,dataset:Dataset):
     model.train()
     return out
 
-
+# learning rate decay scheduler (cosine with warmup)
+def get_lr(config: TrainConfig,iteration):
+    # 1) linear warmup for warmup_iters steps
+    if iteration < config.warmup_iters:
+        return config.lr * iteration / config.warmup_iters
+    # 2) if it > lr_decay_iters, return min learning rate
+    if iteration > config.lr_decay_iters:
+        return config.min_lr
+    # 3) in between, use cosine decay down to min learning rate
+    decay_ratio = (iteration - config.warmup_iters) / (config.lr_decay_iters - config.warmup_iters)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
+    return config.min_lr + coeff * (config.lr - config.min_lr)
 def train(dataset:Dataset):
     
     tr_config = TrainConfig(
         batch_size=12,
         block_size=512,
         eval_iters=200,
-        lr=6e-5,
+        init_lr = 6e-4, # for lr decay
+        lr = 6e-4,
+        min_lr=6e-5,
+        warmup_iters=200,
+        lr_decay_iters=5_000,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         gradient_accumulation_steps=5*8,
         from_pretrained=True
@@ -141,6 +162,9 @@ def train(dataset:Dataset):
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
         time_0 = time.time()
+        lr = get_lr(tr_config, iter)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
         # every once in a while evaluate the loss on train and val sets
         if iter % eval_interval == 0 or iter == max_iters - 1:
             losses = estimate_loss(m,tr_config,dataset)
@@ -155,7 +179,7 @@ def train(dataset:Dataset):
             xb, yb = get_batch('train', tr_config,dataset)
             loss.backward()
         writer.add_scalar("Loss/train", last_loss, iter)
-        print(f"step {iter}: train loss {last_loss:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}" )
+        print(f"step {iter}: train loss {last_loss:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0
