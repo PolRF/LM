@@ -38,6 +38,10 @@ The main goal of this project is to provide a comprehensive and detailed impleme
   - Context: In the previous iterations I saw that the time per step was too high but it was decaying along the steps. I wanted to test if the pretrained model starts with a lower time per step and the gradients update faster (as they are expected to get lower). Also remember that this model is 160M params with the same architecture as GPT-2 but using RoPE instead of the positional embeddings.
   - Results: step 500: train loss 3.6311, val loss 3.6341, time (s): 24.32832, full time: 12256.71348
   - Conclusions: The training started with a time per step similar to the raw model (108s in this case). Nevertheless, the time per step decayed much faster to 33s by step 9. By the step 30 the model was achieving a validation loss of 5.3. This is a good sign that the model is learning faster than the raw model. By step 500, the loss was 3.63, much lower than the training without the pretrained model. I observed that the time per step was around 24s and the loss was around 3.6, maybe implementing decaying learning rate we should achieve a better loss. Also, the model is using 13gb of the gpu memory, I should increase the gpu usage tu fill the 24gb of the L4 gpu.
+- Dynamic learning rate pretrained gpt-2:
+  - Context: Implemented a dynamic learning rate to decay the learning rate along the steps. The learning rate starts at 6e-4 and decays to a minimum of 6e-5.
+  - Results: step 500: train loss 3.321, val loss 3.366, time (s): 24.8, full time: -
+  - Conclusions: The implementation of the decaying lr has been successful since the model is learning faster and achieving a lower loss. The model trained until step 1281 (the gpu credits were over). The lowest training loss was 3.051. The model was using 15gb of the gpu memory. I should implement checkpoints to don't lose this training when I run out of gpu credits, more logging with wandb and change the hyperparams to use the full 24gb of the gpu.
 ## Future Work and TODO's
 
 The following are among the planned future works and 'To Do' items for this project:
@@ -52,7 +56,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Improve the RoPE implementation to apply the rotation to both the queries and keys at the same time
 - [ ] Research (and implement?) weight tying (https://arxiv.org/pdf/1608.05859.pdf)
 - [ ] Implement "model surgery to decrease the block size"
-- [ ] Scale the model to visualize better the improvements
+- [x] Scale the model to visualize better the improvements
 - [ ] Implement KV-cache
 - [ ] Implement Mixture of Experts (Mixtral)
 - [ ] Implement Grouped Query Attention (GQA)
@@ -82,7 +86,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement flash attention to speed up training
 - [x] Use a larger dataset to avoid overfitting
 - [ ] Implement caching for the attention mechanism (across the model)
-- [ ] Dynamic learning rate
+- [x] Dynamic learning rate
 - [ ] Implement gradient checkpointing to reduce memory usage
 - [ ] Implement model checkpoint saving for resuming training
 - [ ] Better visualization of training metrics
