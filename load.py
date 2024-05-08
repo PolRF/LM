@@ -20,7 +20,7 @@ def check_mapping(gpt2_key_name:str):
      
 
 def from_pretrained_gpt2(device:torch.device) -> GPTLM:
-
+    print("Loading GPT-2 weights")
     model_config = ModelConfig(
         vocab_size=50257,
         block_size=1024,

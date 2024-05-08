@@ -15,7 +15,7 @@ from data.openwebtext import prepare as prepare_openwebtext
 writer = SummaryWriter("runs/ler_decay")
 
 BASE_DATA_PATH = './data/'
-
+BASE_CHECKPOINT_PATH = './checkpoints/'
 @dataclass
 class TrainConfig:
     batch_size: int # if gradient_accumulation_steps is >1, then this is the mini-batch size
@@ -27,8 +27,11 @@ class TrainConfig:
     lr_decay_iters:int
     warmup_iters:int
     device: torch.device
+    checkpoint_output_dir: str
     gradient_accumulation_steps: int = 5 * 8
     from_pretrained: bool = False
+    resume_from_checkpoint: bool = False
+    always_save_checkpoint: bool = False
 
 
 
@@ -123,7 +126,7 @@ def train(dataset:Dataset):
     
     tr_config = TrainConfig(
         batch_size=12,
-        block_size=512,
+        block_size=1024,
         eval_iters=200,
         init_lr = 6e-4, # for lr decay
         lr = 6e-4,
@@ -132,7 +135,8 @@ def train(dataset:Dataset):
         lr_decay_iters=5_000,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         gradient_accumulation_steps=5*8,
-        from_pretrained=True
+        from_pretrained=True,
+        checkpoint_output_dir=BASE_CHECKPOINT_PATH
     )
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
@@ -141,36 +145,73 @@ def train(dataset:Dataset):
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=tr_config.block_size,
-        # n_head=4,
-        # n_layer=4,
-        # n_embd=384,
         device=tr_config.device
     )
 
-    model = GPTLM(model_config)
-    print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
-    if tr_config.from_pretrained:
-        model = from_pretrained_gpt2(tr_config.device)
-    m = model.to(tr_config.device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
-    print(f"We are using device: {tr_config.device}")
     # Iterator only
     start_time = time.time() 
     durations = []
-    iter = 0
+    iter_num = 0
+    best_val_loss = 1e9
+    model = GPTLM(model_config)
+    if tr_config.from_pretrained and not tr_config.resume_from_checkpoint:
+        model = from_pretrained_gpt2(tr_config.device)
+    if tr_config.from_pretrained and tr_config.resume_from_checkpoint:
+        print("Ignoring from_pretrained flag since we are resuming from a checkpoint")
+    if tr_config.resume_from_checkpoint:
+        # This is a copy-paste from the Andrej Karpathy code, should be refined later
+        print(f"Resuming training from {tr_config.checkpoint_output_dir}")
+        # resume training from a checkpoint.
+        ckpt_path = os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt')
+        checkpoint = torch.load(ckpt_path, map_location=tr_config.device)
+        checkpoint_model_args = checkpoint['model_args']
+        # force these config attributes to be equal otherwise we can't even resume training
+        # the rest of the attributes (e.g. dropout) can stay as desired from command line
+        for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+            setattr(model_config, k, checkpoint_model_args[k])
+        # create the model
+        model = GPTLM(model_config)
+        state_dict = checkpoint['model']
+        # fix the keys of the state dictionary :(
+        # honestly no idea how checkpoints sometimes get this prefix, have to debug more
+        unwanted_prefix = '_orig_mod.'
+        for k,v in list(state_dict.items()):
+            if k.startswith(unwanted_prefix):
+                state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+        model.load_state_dict(state_dict)
+        iter_num = checkpoint['iter_num']
+        best_val_loss = checkpoint['best_val_loss']
+    print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
+    m = model.to(tr_config.device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
+    print(f"We are using device: {tr_config.device}")
+
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
         time_0 = time.time()
-        lr = get_lr(tr_config, iter)
+        lr = get_lr(tr_config, iter_num)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
         # every once in a while evaluate the loss on train and val sets
-        if iter % eval_interval == 0 or iter == max_iters - 1:
+        if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
             losses = estimate_loss(m,tr_config,dataset)
-            writer.add_scalar("Loss/test", losses['val'], iter)
-            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
-
+            writer.add_scalar("Loss/test", losses['val'], iter_num)
+            print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
+            if losses['val'] < best_val_loss or tr_config.always_save_checkpoint:
+                best_val_loss = losses['val']
+                if iter_num > 0:
+                    # TODO: Type this
+                    checkpoint = {
+                        'model': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                        'model_args': model_config,
+                        'iter_num': iter_num,
+                        'best_val_loss': best_val_loss,
+                        'training_config': tr_config,
+                    }
+                    print(f"saving checkpoint to {tr_config.checkpoint_output_dir}")
+                    torch.save(checkpoint, os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt'))
         last_loss = None
         for micro_step in range(tr_config.gradient_accumulation_steps):
             logits, loss = model(xb, yb)
@@ -178,15 +219,15 @@ def train(dataset:Dataset):
             loss = loss / tr_config.gradient_accumulation_steps
             xb, yb = get_batch('train', tr_config,dataset)
             loss.backward()
-        writer.add_scalar("Loss/train", last_loss, iter)
-        print(f"step {iter}: train loss {last_loss:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
+        writer.add_scalar("Loss/train", last_loss, iter_num)
+        print(f"step {iter_num}: train loss {last_loss:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0
-        writer.add_scalar("time_elapsed", time_elapsed, iter)
+        writer.add_scalar("time_elapsed", time_elapsed, iter_num)
         durations.append(time_elapsed)
-        iter += 1
-        if iter >= max_iters:
+        iter_num += 1
+        if iter_num >= max_iters:
             break
         
     writer.close()

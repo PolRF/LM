@@ -1,3 +1,4 @@
+from typing import List
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -54,7 +55,7 @@ def _rope_frequency(head_dim:int,seq_len:int, device:str, theta:float = 10000.0)
     return f
 
 
-def apply_rope(x: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> torch.Tensor:
+def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> tuple[torch.Tensor, torch.Tensor]:
     """
     Apply the rotary position embedding to the input tensor.
     """
@@ -65,18 +66,22 @@ def apply_rope(x: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> torch
     # 2 is the last dimension of the tensor. We will get a vector with size 2 for each element in the tensor
     # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
     # will be used as the real and imaginary part of the complex number
-    x_complex = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2)) 
-
+    q_complex = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2)) 
+    k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2)) 
     # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
     # Final shape will be (B, Seq_Len, H, Head_Dim/2)
-    x_rotated = x_complex * freqs_complex
+    q_rotated = q_complex * freqs_complex
+    k_rotated = k_complex * freqs_complex
+
     # Convert again to real tensor
-    x_out = torch.view_as_real(x_rotated)
+    q_out = torch.view_as_real(q_rotated)
+    k_out = torch.view_as_real(k_rotated)
     # Reshape the tensor to the original shape
     # (B, Seq_Len, H, Head_Dim/2, 2) -> (B, Seq_Len, H, Head_Dim)
-    x_out = x_out.reshape(*x.shape)
+    q_out = q_out.reshape(*q_out.shape)
+    k_out = k_out.reshape(*k_out.shape)
     # Convert the tensor to the original type and move it to the original device
-    return x_out.type_as(x).to(device)
+    return q_out.type_as(q).to(device), k_out.type_as(k).to(device)
 
 
 class DecoderMultiHeadAttention(nn.Module):
@@ -124,8 +129,7 @@ class DecoderMultiHeadAttention(nn.Module):
 
 
         # Apply the rotary position embedding
-        k = apply_rope(k, rope_freqs, x.device)
-        q = apply_rope(q, rope_freqs, x.device)
+        q, k = apply_rope(q,k, rope_freqs, x.device)
 
         if self.flash:
             # Don't apply custom mask as the param is_causal already apply the mask
@@ -233,6 +237,10 @@ class GPTLM(nn.Module):
         # This is the linear layer that will convert the output of the transformer to the output vocabulary
         # later, we will convert the int to the respective text token.
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+
+        # The weight for the token embeddings are the same as the weights for the last linear layer
+        # that maps the output of the transformer to the output vocabulary.
+        self.token_embedding.weight = self.lm_head.weight
 
         # This is totally copypaste from the Karpathy's implementation.
         # We need to initialize the weights of the Linear layers and the Embedding layers

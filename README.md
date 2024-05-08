@@ -53,7 +53,8 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Combine the `Head` and `MultiHeadAttention` into one class that processes all the heads in parallel, treating the heads as another batch dimension.
 - [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement RoPE
-- [ ] Improve the RoPE implementation to apply the rotation to both the queries and keys at the same time
+- [x] Implement weight sharing between token embedding and the last lm_head layer
+- [x] Improve the RoPE implementation to apply the rotation to both the queries and keys at the same time
 - [ ] Research (and implement?) weight tying (https://arxiv.org/pdf/1608.05859.pdf)
 - [ ] Implement "model surgery to decrease the block size"
 - [x] Scale the model to visualize better the improvements
@@ -72,6 +73,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Study if Infinite attention can be implemented on top of pre-trained models like Mixtral of Experts
 - [ ] BitNet: Scaling 1-bit Transformers for Large Language Models (https://arxiv.org/pdf/2310.11453.pdf)
 - [ ] Try KAN layer instead of MLP (FFN) (paper:https://arxiv.org/abs/2404.19756, code: https://github.com/KindXiaoming/pykan)
+- [ ] Implement model scaling
 
 ### Fine-tuning improvements:
 
@@ -88,7 +90,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement caching for the attention mechanism (across the model)
 - [x] Dynamic learning rate
 - [ ] Implement gradient checkpointing to reduce memory usage
-- [ ] Implement model checkpoint saving for resuming training
+- [x] Implement model checkpoint saving for resuming training
 - [ ] Better visualization of training metrics
 - [ ] Implement early stopping
 - [ ] Implement gradient clipping (?)
@@ -106,3 +108,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Add gpu usage metrics
 - [ ] Augment the logging of the training metrics with wandb (instead of tensorboard)
 - [x] Implement training time metrics
+
+### Code improvements:
+- [ ] Clean the training code
