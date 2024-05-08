@@ -12,7 +12,7 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from data.openwebtext import prepare as prepare_openwebtext
 # Tensorboard logs writers
-writer = SummaryWriter("runs/ler_decay")
+writer = SummaryWriter("runs/share_weights")
 
 BASE_DATA_PATH = './data/'
 BASE_CHECKPOINT_PATH = './checkpoints/'
