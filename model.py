@@ -78,8 +78,8 @@ def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, de
     k_out = torch.view_as_real(k_rotated)
     # Reshape the tensor to the original shape
     # (B, Seq_Len, H, Head_Dim/2, 2) -> (B, Seq_Len, H, Head_Dim)
-    q_out = q_out.reshape(*q_out.shape)
-    k_out = k_out.reshape(*k_out.shape)
+    q_out = q_out.reshape(*q.shape)
+    k_out = k_out.reshape(*k.shape)
     # Convert the tensor to the original type and move it to the original device
     return q_out.type_as(q).to(device), k_out.type_as(k).to(device)
 
