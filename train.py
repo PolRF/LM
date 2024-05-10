@@ -136,8 +136,12 @@ def train(dataset:Dataset):
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         gradient_accumulation_steps=5*8,
         from_pretrained=True,
-        checkpoint_output_dir=BASE_CHECKPOINT_PATH
+        checkpoint_output_dir=BASE_CHECKPOINT_PATH,
+        always_save_checkpoint=False
     )
+    if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
+        print(f"Creating directory: {tr_config.checkpoint_output_dir}")
+        os.makedirs(tr_config.checkpoint_output_dir)
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
     max_iters = 5_000

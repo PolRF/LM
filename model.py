@@ -16,7 +16,7 @@ class ModelConfig:
     n_embd: int = 768
     n_head: int = 12
     n_layer: int = 12
-    dropout: float = 0.2
+    dropout: float = 0.1
     device:torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class GELU(nn.Module):
