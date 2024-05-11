@@ -49,6 +49,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] BitNet: Scaling 1-bit Transformers for Large Language Models (https://arxiv.org/pdf/2310.11453.pdf)
 - [ ] Try KAN layer instead of MLP (FFN) (paper:https://arxiv.org/abs/2404.19756, code: https://github.com/KindXiaoming/pykan)
 - [ ] Implement model scaling
+- [ ] CLLMs (multi token prediction)
 
 ### Fine-tuning improvements:
 
