@@ -132,24 +132,26 @@ def train(dataset:Dataset):
         lr = 6e-4,
         min_lr=6e-5,
         warmup_iters=200,
-        lr_decay_iters=5_000,
+        lr_decay_iters=5_001,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
-        gradient_accumulation_steps=5*8,
+        gradient_accumulation_steps=8*5,
         from_pretrained=True,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
-        always_save_checkpoint=False
+        always_save_checkpoint=False,
+        resume_from_checkpoint=True
     )
     if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
         print(f"Creating directory: {tr_config.checkpoint_output_dir}")
         os.makedirs(tr_config.checkpoint_output_dir)
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
-    max_iters = 5_000
+    max_iters = 5_001
     eval_interval = 500
     model_config = ModelConfig(
-        vocab_size=50304,
-        block_size=tr_config.block_size,
-        device=tr_config.device
+        vocab_size=50257,
+        block_size=1024,
+        device=tr_config.device,
+        dropout=0.1,
     )
 
     # Iterator only
@@ -157,9 +159,10 @@ def train(dataset:Dataset):
     durations = []
     iter_num = 0
     best_val_loss = 1e9
-    model = GPTLM(model_config)
+    model = None
     if tr_config.from_pretrained and not tr_config.resume_from_checkpoint:
-        model = from_pretrained_gpt2(tr_config.device)
+        model, config = from_pretrained_gpt2(tr_config.device)
+        model_config=config
     if tr_config.from_pretrained and tr_config.resume_from_checkpoint:
         print("Ignoring from_pretrained flag since we are resuming from a checkpoint")
     if tr_config.resume_from_checkpoint:
@@ -171,17 +174,19 @@ def train(dataset:Dataset):
         checkpoint_model_args = checkpoint['model_args']
         # force these config attributes to be equal otherwise we can't even resume training
         # the rest of the attributes (e.g. dropout) can stay as desired from command line
-        for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
-            setattr(model_config, k, checkpoint_model_args[k])
+        # for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+        #     setattr(dict_config, k, checkpoint_model_args[k])
         # create the model
+
         model = GPTLM(model_config)
+        print(f"Model args: {checkpoint_model_args}")
         state_dict = checkpoint['model']
         # fix the keys of the state dictionary :(
         # honestly no idea how checkpoints sometimes get this prefix, have to debug more
-        unwanted_prefix = '_orig_mod.'
-        for k,v in list(state_dict.items()):
-            if k.startswith(unwanted_prefix):
-                state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+        # unwanted_prefix = '_orig_mod.'
+        # for k,v in list(state_dict.items()):
+        #     if k.startswith(unwanted_prefix):
+        #         state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
         iter_num = checkpoint['iter_num']
         best_val_loss = checkpoint['best_val_loss']

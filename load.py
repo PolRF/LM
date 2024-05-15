@@ -19,14 +19,11 @@ def check_mapping(gpt2_key_name:str):
     return gpt2_key_name
      
 
-def from_pretrained_gpt2(device:torch.device) -> GPTLM:
+def from_pretrained_gpt2(device:torch.device) -> tuple[GPTLM, ModelConfig]:
     print("Loading GPT-2 weights")
     model_config = ModelConfig(
         vocab_size=50257,
         block_size=1024,
-        # n_head=4,
-        # n_layer=4,
-        # n_embd=384,
         device=device,
         dropout=0.1,
     )
@@ -62,4 +59,4 @@ def from_pretrained_gpt2(device:torch.device) -> GPTLM:
             with torch.no_grad():
                 sd[k_mine].copy_(sd_hf[k])
     
-    return model
+    return model, model_config
