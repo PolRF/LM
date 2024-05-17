@@ -11,11 +11,12 @@ import numpy as np
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from data.openwebtext import prepare as prepare_openwebtext
+from transformers import GPT2LMHeadModel
 # Tensorboard logs writers
-writer = SummaryWriter("runs/share_weights")
+writer = SummaryWriter("runs/raw_gpt2_openwebtext")
 
 BASE_DATA_PATH = './data/'
-BASE_CHECKPOINT_PATH = './checkpoints/'
+BASE_CHECKPOINT_PATH = './checkpoints_gpt_2/'
 @dataclass
 class TrainConfig:
     batch_size: int # if gradient_accumulation_steps is >1, then this is the mini-batch size
@@ -190,6 +191,8 @@ def train(dataset:Dataset):
         model.load_state_dict(state_dict)
         iter_num = checkpoint['iter_num']
         best_val_loss = checkpoint['best_val_loss']
+    model = GPT2LMHeadModel.from_pretrained("gpt2")
+    assert model
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
     m = model.to(tr_config.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
@@ -242,7 +245,7 @@ def train(dataset:Dataset):
     writer.close()
 
 def test_generation():
-    model = from_pretrained_gpt2(torch.device("cuda"))
+    model, _ = from_pretrained_gpt2(torch.device("cuda"))
     model = model.to("cuda")
     model.eval()
     print("Model loaded")
