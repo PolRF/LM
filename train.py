@@ -132,7 +132,7 @@ def train(dataset:Dataset):
         lr = 6e-4,
         min_lr=6e-5,
         warmup_iters=200,
-        lr_decay_iters=5_001,
+        lr_decay_iters=60_000,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         gradient_accumulation_steps=8*5,
         from_pretrained=True,
@@ -145,7 +145,7 @@ def train(dataset:Dataset):
         os.makedirs(tr_config.checkpoint_output_dir)
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
-    max_iters = 5_001
+    max_iters = 60_000
     eval_interval = 500
     model_config = ModelConfig(
         vocab_size=50257,
@@ -221,15 +221,15 @@ def train(dataset:Dataset):
                     }
                     print(f"saving checkpoint to {tr_config.checkpoint_output_dir}")
                     torch.save(checkpoint, os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt'))
-        last_loss = None
+        micro_loss = []
         for micro_step in range(tr_config.gradient_accumulation_steps):
             logits, loss = model(xb, yb)
-            last_loss = loss
+            micro_loss.append(loss.item())
             loss = loss / tr_config.gradient_accumulation_steps
             xb, yb = get_batch('train', tr_config,dataset)
             loss.backward()
-        writer.add_scalar("Loss/train", last_loss, iter_num)
-        print(f"step {iter_num}: train loss {last_loss:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
+        writer.add_scalar("Loss/train", np.mean(micro_loss), iter_num)
+        print(f"step {iter_num}: train loss {np.mean(micro_loss):.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0

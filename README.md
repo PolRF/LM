@@ -10,8 +10,8 @@ The main goal of this project is to provide a comprehensive and detailed impleme
 - Improved GPT-2 model:
   - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), flash attention and learning rate decay while training.
   - Model params: 123M
-  - Results: 3.08 val loss after 2000 steps and a lowest training loss of 2.88. With further training, 3.035 validation loss was achieved. Minimum training loss at 2.71/
-  - Conclusions: A improvement of 0.865 from the original GPT-2 according to the Karpathy's nanogpt baseline of 3.11 train loss and 3.12 val loss. The loss was still decaying when the training achieved 5000 steps so I could keep training in order to achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model.
+  - Results: 3.08 val loss after 2000 steps and a lowest training loss of 2.88. With further training, 3.029 validation loss was achieved. Minimum training loss at 2.71
+  - Conclusions: A improvement from the original GPT-2 according to the Karpathy's nanogpt baseline of 3.11 train loss and 3.12 val loss. The loss was still decaying when the training achieved 5000 steps so I could keep training in order to achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model.
   - Further improvements: Change hyperparams to improve the model and keep training it until we can outperform the finetuned baseline of 2.85 val loss. We can add GQA in order to upscale the model and achieve better results.
 
 ## Results:
