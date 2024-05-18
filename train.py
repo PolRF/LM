@@ -1,9 +1,11 @@
+from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
 import math
 import time
 import tiktoken
 import torch
+import inspect
 
 from load import from_pretrained_gpt2
 from model import ModelConfig, GPTLM
@@ -11,12 +13,12 @@ import numpy as np
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from data.openwebtext import prepare as prepare_openwebtext
-from transformers import GPT2LMHeadModel
+import torch.nn as nn
 # Tensorboard logs writers
-writer = SummaryWriter("runs/raw_gpt2_openwebtext")
+writer = SummaryWriter("runs/openwebtext_better_training")
 
 BASE_DATA_PATH = './data/'
-BASE_CHECKPOINT_PATH = './checkpoints_gpt_2/'
+BASE_CHECKPOINT_PATH = './checkpoints_with_training/'
 @dataclass
 class TrainConfig:
     batch_size: int # if gradient_accumulation_steps is >1, then this is the mini-batch size
@@ -28,11 +30,13 @@ class TrainConfig:
     lr_decay_iters:int
     warmup_iters:int
     device: torch.device
+    dtype: str
     checkpoint_output_dir: str
     gradient_accumulation_steps: int = 5 * 8
     from_pretrained: bool = False
     resume_from_checkpoint: bool = False
     always_save_checkpoint: bool = False
+    compile: bool = False
 
 
 
@@ -97,14 +101,15 @@ def get_batch(split, config: TrainConfig,dataset:Dataset):
     return x, y
 
 @torch.no_grad()
-def estimate_loss(model, config: TrainConfig,dataset:Dataset):
+def estimate_loss(model, config: TrainConfig,dataset:Dataset, ctx=nullcontext() or torch.amp.autocast):
     out = {}
     model.eval()
     for split in ['train', 'val']:
         losses = torch.zeros(config.eval_iters)
         for k in range(config.eval_iters):
             X, Y = get_batch(split,config,dataset)
-            logits, loss = model(X, Y)
+            with ctx:
+                logits, loss = model(X, Y)
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()
@@ -123,6 +128,33 @@ def get_lr(config: TrainConfig,iteration):
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
     return config.min_lr + coeff * (config.lr - config.min_lr)
+
+def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, device_type):
+    # start with all of the candidate parameters
+    param_dict = {pn: p for pn, p in model.named_parameters()}
+    # filter out those that do not require grad
+    param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+    # create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.
+    # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
+    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+    optim_groups = [
+        {'params': decay_params, 'weight_decay': weight_decay},
+        {'params': nodecay_params, 'weight_decay': 0.0}
+    ]
+    num_decay_params = sum(p.numel() for p in decay_params)
+    num_nodecay_params = sum(p.numel() for p in nodecay_params)
+    print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
+    print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
+    # Create AdamW optimizer and use the fused version if it is available
+    fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+    use_fused = fused_available and device_type == 'cuda'
+    extra_args = dict(fused=True) if use_fused else dict()
+    optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, **extra_args)
+    print(f"using fused AdamW: {use_fused}")
+
+    return optimizer
+
 def train(dataset:Dataset):
     
     tr_config = TrainConfig(
@@ -135,12 +167,17 @@ def train(dataset:Dataset):
         warmup_iters=200,
         lr_decay_iters=60_000,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+        dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
         gradient_accumulation_steps=8*5,
         from_pretrained=True,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
-        resume_from_checkpoint=True
+        resume_from_checkpoint=False,
+        compile=True,
     )
+    ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[tr_config.dtype]
+    ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.amp.autocast(device_type=tr_config.device.type, dtype=ptdtype)
+
     if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
         print(f"Creating directory: {tr_config.checkpoint_output_dir}")
         os.makedirs(tr_config.checkpoint_output_dir)
@@ -191,11 +228,12 @@ def train(dataset:Dataset):
         model.load_state_dict(state_dict)
         iter_num = checkpoint['iter_num']
         best_val_loss = checkpoint['best_val_loss']
-    model = GPT2LMHeadModel.from_pretrained("gpt2")
     assert model
+    if tr_config.compile:
+        model = torch.compile(model)
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
     m = model.to(tr_config.device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=tr_config.lr)
+    optimizer = configure_optimizers(m, 0.1, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
 
     # Init the first batch
@@ -207,7 +245,7 @@ def train(dataset:Dataset):
             param_group['lr'] = lr
         # every once in a while evaluate the loss on train and val sets
         if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
-            losses = estimate_loss(m,tr_config,dataset)
+            losses = estimate_loss(m,tr_config,dataset, ctx)
             writer.add_scalar("Loss/test", losses['val'], iter_num)
             print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
             if losses['val'] < best_val_loss or tr_config.always_save_checkpoint:
@@ -226,7 +264,8 @@ def train(dataset:Dataset):
                     torch.save(checkpoint, os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt'))
         micro_loss = []
         for micro_step in range(tr_config.gradient_accumulation_steps):
-            logits, loss = model(xb, yb)
+            with ctx:
+                logits, loss = model(xb, yb)
             micro_loss.append(loss.item())
             loss = loss / tr_config.gradient_accumulation_steps
             xb, yb = get_batch('train', tr_config,dataset)

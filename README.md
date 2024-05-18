@@ -71,6 +71,9 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement early stopping
 - [ ] Add pytorch profiler to debug bottlenecks
 - [ ] Take a look at pytorch lightning
+- [x] Compile the model
+- [x] Config optimizer (to be more efficient)
+- [x] Add dtype as parameter for training
 - [ ] Implement gradient clipping (?)
 - [x] Implement gradient accumulation (micro-batching)
 - [ ] Implement mixed precision training (?)
