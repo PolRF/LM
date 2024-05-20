@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This repository is mainly created for educational purposes (mainly my own), with an emphasis on the practical implementation of state-of-the-art (SOTA) language models papers, utilizing the PyTorch library.
+This repository is mainly created for educational purposes (mainly my own), with an emphasis on the practical implementation of state-of-the-art (SOTA) language model papers, using the PyTorch library.
 
 The main goal of this project is to provide a comprehensive and detailed implementation of the most recent and popular language models, such as GPT-2, Llama 2, Mistral, and others, as well as to provide a detailed explanation of the underlying concepts and mechanisms of these models.
 
@@ -67,16 +67,17 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Dynamic learning rate
 - [ ] Implement gradient checkpointing to reduce memory usage
 - [x] Implement model checkpoint saving for resuming training
-- [ ] Better visualization of training metrics
+- [x] Better visualization of training metrics
 - [ ] Implement early stopping
 - [ ] Add pytorch profiler to debug bottlenecks
 - [ ] Take a look at pytorch lightning
+- [x] Config different precision for different parts of the model
 - [x] Compile the model
 - [x] Config optimizer (to be more efficient)
 - [x] Add dtype as parameter for training
 - [ ] Implement gradient clipping (?)
 - [x] Implement gradient accumulation (micro-batching)
-- [ ] Implement mixed precision training (?)
+- [x] Implement mixed precision training
 - [ ] Implement distributed training (?)
 - [ ] Implement model parallelism (?)
 - [ ] Implement data parallelism (?)
@@ -87,7 +88,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement Tensorboard
 - [ ] Add tracking of different test-training metrics (params, testing name, time). 
 - [ ] Add gpu usage metrics
-- [ ] Augment the logging of the training metrics with wandb (instead of tensorboard)
+- [x] Augment the logging of the training metrics with wandb (instead of tensorboard)
 - [x] Implement training time metrics
 
 ### Code improvements:

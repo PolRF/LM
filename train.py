@@ -16,6 +16,7 @@ from data.openwebtext import prepare as prepare_openwebtext
 import torch.nn as nn
 # Tensorboard logs writers
 writer = SummaryWriter("runs/openwebtext_better_training")
+import wandb
 
 BASE_DATA_PATH = './data/'
 BASE_CHECKPOINT_PATH = './checkpoints_with_training/'
@@ -37,6 +38,7 @@ class TrainConfig:
     resume_from_checkpoint: bool = False
     always_save_checkpoint: bool = False
     compile: bool = False
+    grad_clip: float = 1.0
 
 
 
@@ -228,14 +230,17 @@ def train(dataset:Dataset):
         model.load_state_dict(state_dict)
         iter_num = checkpoint['iter_num']
         best_val_loss = checkpoint['best_val_loss']
+    checkpoint=None
     assert model
+    print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
+    model.to(tr_config.device)
+    scaler = torch.cuda.amp.GradScaler(enabled=(tr_config.dtype == 'float16'))
     if tr_config.compile:
         model = torch.compile(model)
-    print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
-    m = model.to(tr_config.device)
-    optimizer = configure_optimizers(m, 0.1, tr_config.lr, (0.9, 0.95), 'cuda') 
+    optimizer = configure_optimizers(model, 0.1, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
-
+    wandb_project = "gpt2"
+    wandb.init(project=wandb_project, name="rope-gpt2", config=tr_config.__dict__,)
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
@@ -269,10 +274,20 @@ def train(dataset:Dataset):
             micro_loss.append(loss.item())
             loss = loss / tr_config.gradient_accumulation_steps
             xb, yb = get_batch('train', tr_config,dataset)
-            loss.backward()
+            scaler.scale(loss).backward()
+        if tr_config.grad_clip != 0.0:
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
         writer.add_scalar("Loss/train", np.mean(micro_loss), iter_num)
+        wandb.log({
+                "iter": iter_num,
+                "train/loss": np.mean(micro_loss),
+                "lr": lr,
+                "time": np.mean(durations) if len(durations)>0 else 0,
+            })
         print(f"step {iter_num}: train loss {np.mean(micro_loss):.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
         optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0
         writer.add_scalar("time_elapsed", time_elapsed, iter_num)
