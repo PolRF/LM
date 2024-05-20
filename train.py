@@ -250,7 +250,7 @@ def train(dataset:Dataset):
             param_group['lr'] = lr
         # every once in a while evaluate the loss on train and val sets
         if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
-            losses = estimate_loss(m,tr_config,dataset, ctx)
+            losses = estimate_loss(model,tr_config,dataset, ctx)
             writer.add_scalar("Loss/test", losses['val'], iter_num)
             print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
             if losses['val'] < best_val_loss or tr_config.always_save_checkpoint:
