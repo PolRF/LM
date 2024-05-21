@@ -165,12 +165,12 @@ def train(dataset:Dataset):
         eval_iters=200,
         init_lr = 6e-4, # for lr decay
         lr = 6e-4,
-        min_lr=6e-5,
+        min_lr=2e-5,
         warmup_iters=200,
-        lr_decay_iters=60_000,
+        lr_decay_iters=5_000,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=8*5,
+        gradient_accumulation_steps=64,
         from_pretrained=True,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
@@ -185,7 +185,7 @@ def train(dataset:Dataset):
         os.makedirs(tr_config.checkpoint_output_dir)
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
-    max_iters = 60_000
+    max_iters = 5_000
     eval_interval = 500
     model_config = ModelConfig(
         vocab_size=50257,

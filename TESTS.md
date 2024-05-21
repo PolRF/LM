@@ -35,3 +35,6 @@
   - Context: Implemented a dynamic learning rate to decay the learning rate along the steps. The learning rate starts at 6e-4 and decays to a minimum of 6e-5.
   - Results: step 500: train loss 3.321, val loss 3.366, time (s): 24.8, full time: -
   - Conclusions: The implementation of the decaying lr has been successful since the model is learning faster and achieving a lower loss. The model trained until step 1281 (the gpu credits were over). The lowest training loss was 3.051. The model was using 15gb of the gpu memory. I should implement checkpoints to don't lose this training when I run out of gpu credits, more logging with wandb and change the hyperparams to use the full 24gb of the gpu.
+- Improved training script:
+  - Context: I implemented different things to improve the training. Now we compile the model. We use mixed precision with the proper gradient scaler. Some tweak on the batch size and gradient accumulation steps to use more gpu (the new A6000 has 48gb of ram 72% usage). Also, I implemented the wandb logger to keep track of the training.
+  - Results: The time per step has decreased to 8-10 seconds thanks to compilation and mixed precision. The achieved training loss in the first 500 steps was 
