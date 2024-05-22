@@ -170,13 +170,16 @@ def train(dataset:Dataset):
         lr_decay_iters=5_000,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=64,
+        gradient_accumulation_steps=5 * 8,
         from_pretrained=True,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
         resume_from_checkpoint=False,
         compile=True,
     )
+    torch.manual_seed(1337)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
     ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[tr_config.dtype]
     ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.amp.autocast(device_type=tr_config.device.type, dtype=ptdtype)
 
@@ -237,10 +240,10 @@ def train(dataset:Dataset):
     scaler = torch.cuda.amp.GradScaler(enabled=(tr_config.dtype == 'float16'))
     if tr_config.compile:
         model = torch.compile(model)
-    optimizer = configure_optimizers(model, 0.1, tr_config.lr, (0.9, 0.95), 'cuda') 
+    optimizer = configure_optimizers(model, 1e-2, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="rope-gpt2", config=tr_config.__dict__,)
+    wandb.init(project=wandb_project, name="gpt2-training", config=tr_config.__dict__,)
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
@@ -251,7 +254,13 @@ def train(dataset:Dataset):
         # every once in a while evaluate the loss on train and val sets
         if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
             losses = estimate_loss(model,tr_config,dataset, ctx)
-            writer.add_scalar("Loss/test", losses['val'], iter_num)
+            wandb.log({
+                "iter": iter_num,
+                "train/loss": losses['train'],
+                "val/loss": losses['val'],
+                "lr": lr,
+                "time": np.mean(durations) if len(durations)>0 else 0,
+            })
             print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
             if losses['val'] < best_val_loss or tr_config.always_save_checkpoint:
                 best_val_loss = losses['val']
@@ -278,7 +287,6 @@ def train(dataset:Dataset):
         if tr_config.grad_clip != 0.0:
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
-        writer.add_scalar("Loss/train", np.mean(micro_loss), iter_num)
         wandb.log({
                 "iter": iter_num,
                 "train/loss": np.mean(micro_loss),
@@ -290,7 +298,6 @@ def train(dataset:Dataset):
         scaler.update()
         optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0
-        writer.add_scalar("time_elapsed", time_elapsed, iter_num)
         durations.append(time_elapsed)
         iter_num += 1
         if iter_num >= max_iters:
