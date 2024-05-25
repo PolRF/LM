@@ -160,28 +160,29 @@ def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, de
 def train(dataset:Dataset):
     
     tr_config = TrainConfig(
-        batch_size=12,
+        batch_size=8,
         block_size=1024,
         eval_iters=200,
-        init_lr = 6e-4, # for lr decay
+        init_lr = 6e-4, # for lr decay (TODO need a lower lr????)
         lr = 6e-4,
-        min_lr=2e-5,
+        min_lr=6e-5, 
         warmup_iters=200,
         lr_decay_iters=5_000,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=5 * 8,
+        gradient_accumulation_steps=64,
         from_pretrained=True,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
         resume_from_checkpoint=False,
         compile=True,
+        grad_clip=1.0
     )
     torch.manual_seed(1337)
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
     ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[tr_config.dtype]
     ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.amp.autocast(device_type=tr_config.device.type, dtype=ptdtype)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
     if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
         print(f"Creating directory: {tr_config.checkpoint_output_dir}")
@@ -240,10 +241,10 @@ def train(dataset:Dataset):
     scaler = torch.cuda.amp.GradScaler(enabled=(tr_config.dtype == 'float16'))
     if tr_config.compile:
         model = torch.compile(model)
-    optimizer = configure_optimizers(model, 1e-2, tr_config.lr, (0.9, 0.95), 'cuda') 
+    optimizer = configure_optimizers(model, 1e-1, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="gpt2-training", config=tr_config.__dict__,)
+    wandb.init(project=wandb_project, name="gpt2-batch-6", config=tr_config.__dict__,)
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
@@ -256,7 +257,6 @@ def train(dataset:Dataset):
             losses = estimate_loss(model,tr_config,dataset, ctx)
             wandb.log({
                 "iter": iter_num,
-                "train/loss": losses['train'],
                 "val/loss": losses['val'],
                 "lr": lr,
                 "time": np.mean(durations) if len(durations)>0 else 0,

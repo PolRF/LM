@@ -75,7 +75,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Compile the model
 - [x] Config optimizer (to be more efficient)
 - [x] Add dtype as parameter for training
-- [ ] Implement gradient clipping (?)
+- [x] Implement gradient clipping
 - [x] Implement gradient accumulation (micro-batching)
 - [x] Implement mixed precision training
 - [ ] Implement distributed training (?)
