@@ -25,7 +25,7 @@ def from_pretrained_gpt2(device:torch.device) -> tuple[GPTLM, ModelConfig]:
         vocab_size=50257,
         block_size=1024,
         device=device,
-        dropout=0.0,
+        dropout=0.1,
     )
 
     model = GPTLM(model_config)
