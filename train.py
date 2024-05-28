@@ -173,10 +173,10 @@ def train(dataset:Dataset):
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
         gradient_accumulation_steps=5,
-        from_pretrained=True,
+        from_pretrained=False,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
-        resume_from_checkpoint=False,
+        resume_from_checkpoint=True,
         compile=True,
         grad_clip=1.0
     )
@@ -247,7 +247,7 @@ def train(dataset:Dataset):
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="gpt2-finetune", config=tr_config.__dict__,)
+    wandb.init(project=wandb_project, name="gpt2-finetune", config=tr_config.__dict__, resume="allow", id="oqgn7fqn")
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
