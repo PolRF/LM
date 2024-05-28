@@ -161,17 +161,17 @@ def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, de
 def train(dataset:Dataset):
     
     tr_config = TrainConfig(
-        batch_size=24,
+        batch_size=12,
         block_size=1024,
         eval_iters=200,
         init_lr = 6e-4, # for lr decay (TODO need a lower lr????)
         lr = 6e-4,
-        min_lr=6e-6,
-        warmup_iters=2_000,
-        lr_decay_iters=60_000,
-        weight_decay=1e-2,
+        min_lr=6e-5,
+        warmup_iters=20_000,
+        lr_decay_iters=600_000,
+        weight_decay=1e-1,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
-        dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
+        dtype = 'float32' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
         gradient_accumulation_steps=5,
         from_pretrained=False,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
@@ -192,13 +192,13 @@ def train(dataset:Dataset):
         os.makedirs(tr_config.checkpoint_output_dir)
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
-    max_iters = 60_000
+    max_iters = 600_000
     eval_interval = 500
     model_config = ModelConfig(
-        vocab_size=50257,
+        vocab_size=50304,
         block_size=1024,
         device=tr_config.device,
-        dropout=0.1,
+        dropout=0.0,
     )
 
     # Iterator only
@@ -247,7 +247,7 @@ def train(dataset:Dataset):
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="gpt2-finetune", config=tr_config.__dict__, resume="allow", id="oqgn7fqn")
+    wandb.init(project=wandb_project, name="gpt2-finetune", config=tr_config.__dict__, fork_from="oqgn7fqn?_step=60115")
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
