@@ -16,11 +16,11 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from data.openwebtext import prepare as prepare_openwebtext
 import torch.nn as nn
 # Tensorboard logs writers
-writer = SummaryWriter("runs/openwebtext_better_training")
+writer = SummaryWriter("runs/gqa")
 import wandb
 
 BASE_DATA_PATH = './data/'
-BASE_CHECKPOINT_PATH = './checkpoints_with_training/'
+BASE_CHECKPOINT_PATH = './checkpoints_with_training_gqa/'
 @dataclass
 class TrainConfig:
     model: Literal["RoPeGPT2","GQAGPT2"]
@@ -174,7 +174,7 @@ def train(dataset:Dataset):
         lr_decay_iters=600_000,
         weight_decay=1e-1,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
-        dtype = 'float32' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
+        dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
         gradient_accumulation_steps=5,
         from_pretrained=False,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
@@ -185,10 +185,10 @@ def train(dataset:Dataset):
     )
     print("using dtype: ", tr_config.dtype)
     torch.manual_seed(1337)
-    ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[tr_config.dtype]
-    ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.amp.autocast(device_type=tr_config.device.type, dtype=ptdtype)
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
+    ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[tr_config.dtype]
+    ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.amp.autocast(device_type=tr_config.device.type, dtype=ptdtype)
 
     if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
         print(f"Creating directory: {tr_config.checkpoint_output_dir}")
