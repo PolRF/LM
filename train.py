@@ -179,7 +179,7 @@ def train(dataset:Dataset):
         from_pretrained=False,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
-        resume_from_checkpoint=True,
+        resume_from_checkpoint=False,
         compile=True,
         grad_clip=1.0
     )

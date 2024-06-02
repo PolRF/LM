@@ -237,9 +237,10 @@ class AttentionBlock(nn.Module):
         self.ln1 = nn.LayerNorm(config.n_embd)
         self.ln2 = nn.LayerNorm(config.n_embd)
         if config.n_kv_heads == config.n_head:
-            self.attn = DecoderGroupedQueryHeadAttention(config)
-        else:
             self.attn = DecoderMultiHeadAttention(config)
+        else:
+            print("Using grouped query heads")
+            self.attn = DecoderGroupedQueryHeadAttention(config)
         self.ffn = FFN(config)
         
         # RoPE
