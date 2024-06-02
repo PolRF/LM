@@ -255,7 +255,7 @@ def train(dataset:Dataset):
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="gpt2-finetune", config=tr_config.__dict__, fork_from="oqgn7fqn?_step=60115")
+    wandb.init(project=wandb_project, name="gpt2-gqa", config=tr_config.__dict__)
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
