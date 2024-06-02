@@ -179,7 +179,8 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
     def __init__(self, config:ModelConfig):
         super().__init__()
         self.q = nn.Linear(config.n_embd, config.n_embd, bias=False)
-        
+        self.n_head = config.n_head
+        self.n_kv_head = config.n_kv_heads
         self.kv = nn.Linear(config.n_embd, config.n_embd*2, bias=False)
         self.q_kv_proportion = config.n_head//config.n_kv_heads
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
