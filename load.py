@@ -19,7 +19,7 @@ def check_mapping(gpt2_key_name:str):
     return gpt2_key_name
      
 
-def from_pretrained_gpt2(device:torch.device) -> tuple[GPTLM, ModelConfig]:
+def from_pretrained_rope_gpt2(device:torch.device) -> tuple[GPTLM, ModelConfig]:
     print("Loading GPT-2 weights")
     model_config = ModelConfig(
         vocab_size=50257,

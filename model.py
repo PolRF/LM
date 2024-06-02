@@ -15,6 +15,7 @@ class ModelConfig:
     block_size: int = 1024
     n_embd: int = 768
     n_head: int = 12
+    n_kv_heads: int = 4
     n_layer: int = 12
     dropout: float = 0.1
     device:torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -171,6 +172,42 @@ class DecoderMultiHeadAttention(nn.Module):
 
 
 
+class DecoderGroupedQueryHeadAttention(nn.Module):
+    """
+    Decoder only attention head with grouped query heads instead of multi-head attention. 
+    """
+    def __init__(self, config:ModelConfig):
+        super().__init__()
+        self.q = nn.Linear(config.n_embd, config.n_embd, bias=False)
+        
+        self.kv = nn.Linear(config.n_embd, config.n_embd*2, bias=False)
+        self.q_kv_proportion = config.n_head//config.n_kv_heads
+        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+        assert self.flash
+        self.linear_projection = nn.Linear(config.n_embd, config.n_embd, bias=True)
+        self.projection_dropout = nn.Dropout(config.dropout)
+        # Add dropouts
+        self.attn_dropout = nn.Dropout(config.dropout)
+        self.dropout = config.dropout
+
+    def forward(self,x:torch.Tensor, rope_freqs:torch.Tensor):
+        B,T,C = x.shape
+        q = self.q(x)
+        q = q.view(B, T, self.n_head,C//self.n_head ).transpose(1,2)
+        
+        k,v = self.kv(x).chunk(2, dim=-1)
+        k = k.view(B, T, self.n_kv_head,C//self.n_kv_head).transpose(1,2)
+        v = v.view(B, T, self.n_kv_head,C//self.n_kv_head).transpose(1,2)
+
+        q, k = apply_rope(q,k, rope_freqs, x.device)
+
+        output = torch.nn.functional.scaled_dot_product_attention(q, k, v, None, dropout_p=self.dropout if self.training else 0.0, is_causal=True)
+        output = output.transpose(1,2).contiguous().view(B, T, C)
+        output = self.projection_dropout(self.linear_projection(output))
+        return output
+
+
+
 class FFN(nn.Module):
     """
     Feed forward network.
@@ -199,7 +236,10 @@ class AttentionBlock(nn.Module):
         super().__init__()
         self.ln1 = nn.LayerNorm(config.n_embd)
         self.ln2 = nn.LayerNorm(config.n_embd)
-        self.attn = DecoderMultiHeadAttention(config)
+        if config.n_kv_heads == config.n_head:
+            self.attn = DecoderGroupedQueryHeadAttention(config)
+        else:
+            self.attn = DecoderMultiHeadAttention(config)
         self.ffn = FFN(config)
         
         # RoPE

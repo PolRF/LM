@@ -50,6 +50,8 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Try KAN layer instead of MLP (FFN) (paper:https://arxiv.org/abs/2404.19756, code: https://github.com/KindXiaoming/pykan)
 - [ ] Implement model scaling
 - [ ] CLLMs (multi token prediction)
+- [ ] Read https://arxiv.org/abs/2405.17247
+- [ ] Distillation
 
 ### Fine-tuning improvements:
 

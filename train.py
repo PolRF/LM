@@ -3,11 +3,12 @@ from dataclasses import dataclass
 from enum import Enum
 import math
 import time
+from typing import Literal
 import tiktoken
 import torch
 import inspect
 
-from load import from_pretrained_gpt2
+from load import from_pretrained_rope_gpt2
 from model import ModelConfig, GPTLM
 import numpy as np
 import os
@@ -22,6 +23,7 @@ BASE_DATA_PATH = './data/'
 BASE_CHECKPOINT_PATH = './checkpoints_with_training/'
 @dataclass
 class TrainConfig:
+    model: Literal["RoPeGPT2","GQAGPT2"]
     batch_size: int # if gradient_accumulation_steps is >1, then this is the mini-batch size
     block_size: int
     eval_iters: int
@@ -161,6 +163,7 @@ def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, de
 def train(dataset:Dataset):
     
     tr_config = TrainConfig(
+        model="RoPeGPT2",
         batch_size=12,
         block_size=1024,
         eval_iters=200,
@@ -199,6 +202,8 @@ def train(dataset:Dataset):
         block_size=1024,
         device=tr_config.device,
         dropout=0.0,
+        n_head=16,
+        n_kv_heads=4,
     )
 
     # Iterator only
@@ -206,9 +211,12 @@ def train(dataset:Dataset):
     durations = []
     iter_num = 0
     best_val_loss = 1e9
-    model = None
+    model = GPTLM(model_config)
     if tr_config.from_pretrained and not tr_config.resume_from_checkpoint:
-        model, config = from_pretrained_gpt2(tr_config.device)
+        if tr_config.model == "RoPeGPT2":
+            model, config = from_pretrained_rope_gpt2(tr_config.device)
+        else:
+            raise ValueError("Loading from pretrained is only supported for RoPeGPT2 model.")
         model_config=config
     if tr_config.from_pretrained and tr_config.resume_from_checkpoint:
         print("Ignoring from_pretrained flag since we are resuming from a checkpoint")
@@ -229,11 +237,11 @@ def train(dataset:Dataset):
         print(f"Model args: {checkpoint_model_args}")
         state_dict = checkpoint['model']
         # fix the keys of the state dictionary :(
-        # honestly no idea how checkpoints sometimes get this prefix, have to debug more
-        # unwanted_prefix = '_orig_mod.'
-        # for k,v in list(state_dict.items()):
-        #     if k.startswith(unwanted_prefix):
-        #         state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+        # this prefix is present when saving compiled model
+        unwanted_prefix = '_orig_mod.'
+        for k,v in list(state_dict.items()):
+            if k.startswith(unwanted_prefix):
+                state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
         model.load_state_dict(state_dict)
         iter_num = checkpoint['iter_num']
         best_val_loss = checkpoint['best_val_loss']
@@ -309,7 +317,7 @@ def train(dataset:Dataset):
     writer.close()
 
 def test_generation():
-    model, _ = from_pretrained_gpt2(torch.device("cuda"))
+    model, _ = from_pretrained_rope_gpt2(torch.device("cuda"))
     model = model.to("cuda")
     model.eval()
     print("Model loaded")
