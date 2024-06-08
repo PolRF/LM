@@ -71,7 +71,7 @@ def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, de
     k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
 
     # Add this for GQA
-    freqs_complex = freqs_complex.unsqueeze(0).unsqueeze(2) 
+    # freqs_complex = freqs_complex.unsqueeze(0).unsqueeze(2) 
     # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
     # Final shape will be (B, Seq_Len, H, Head_Dim/2)
     q_rotated = q_complex * freqs_complex
@@ -200,8 +200,8 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
         q = q.view(B, T, self.n_head,C//self.n_head ).transpose(1,2)
         
         k,v = self.kv(x).chunk(2, dim=-1)
-        k = k.view(B, T, self.n_kv_head,C//self.n_kv_head).transpose(1,2)
-        v = v.view(B, T, self.n_kv_head,C//self.n_kv_head).transpose(1,2)
+        k = k.view(B, T, self.n_kv_head,C//self.n_head).transpose(1,2)
+        v = v.view(B, T, self.n_kv_head,C//self.n_head).transpose(1,2)
 
         q, k = apply_rope(q,k, rope_freqs, x.device)
 
