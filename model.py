@@ -205,8 +205,9 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
         q, k = apply_rope(q,k, rope_freqs, x.device)
         
         # Repeat the keys and values to match query heads
-        k = k.repeat(1,1,self.q_kv_proportion,1)
-        v = v.repeat(1,1,self.q_kv_proportion,1)
+        k = k.repeat(1, self.q_kv_proportion, 1, 1)
+        v = v.repeat(1, self.q_kv_proportion, 1, 1)
+
 
         output = torch.nn.functional.scaled_dot_product_attention(q, k, v, None, dropout_p=self.dropout if self.training else 0.0, is_causal=True)
         output = output.transpose(1,2).contiguous().view(B, T, C)
