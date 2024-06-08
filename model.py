@@ -70,8 +70,6 @@ def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, de
     q_complex = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2)) 
     k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
 
-    # Add this for GQA
-    # freqs_complex = freqs_complex.unsqueeze(0).unsqueeze(2) 
     # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
     # Final shape will be (B, Seq_Len, H, Head_Dim/2)
     q_rotated = q_complex * freqs_complex
@@ -205,6 +203,10 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
         v = v.view(B, T, self.n_kv_head,self.head_dim).transpose(1,2)
 
         q, k = apply_rope(q,k, rope_freqs, x.device)
+        
+        # Repeat the keys and values to match query heads
+        k = k.repeat(1,1,self.q_kv_proportion,1)
+        v = v.repeat(1,1,self.q_kv_proportion,1)
 
         output = torch.nn.functional.scaled_dot_product_attention(q, k, v, None, dropout_p=self.dropout if self.training else 0.0, is_causal=True)
         output = output.transpose(1,2).contiguous().view(B, T, C)
