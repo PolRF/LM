@@ -52,6 +52,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] CLLMs (multi token prediction)
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
+- [ ] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
 
 ### Fine-tuning improvements:
 
