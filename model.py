@@ -68,7 +68,10 @@ def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, de
     # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
     # will be used as the real and imaginary part of the complex number
     q_complex = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2)) 
-    k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2)) 
+    k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
+
+    # Add this for GQA
+    freqs_complex = freqs_complex.unsqueeze(0).unsqueeze(2) 
     # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
     # Final shape will be (B, Seq_Len, H, Head_Dim/2)
     q_rotated = q_complex * freqs_complex
