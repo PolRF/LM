@@ -181,10 +181,11 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
     """
     def __init__(self, config:ModelConfig):
         super().__init__()
-        self.q = nn.Linear(config.n_embd, config.n_embd, bias=False)
         self.n_head = config.n_head
         self.n_kv_head = config.n_kv_heads
-        self.kv = nn.Linear(config.n_embd, config.n_embd*2, bias=False)
+        self.head_dim = config.n_embd // config.n_head
+        self.q = nn.Linear(config.n_embd, config.n_embd, bias=False)
+        self.kv = nn.Linear(config.n_embd, self.head_dim*config.n_kv_heads*2, bias=False)
         self.q_kv_proportion = config.n_head//config.n_kv_heads
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
         assert self.flash
@@ -197,11 +198,11 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
     def forward(self,x:torch.Tensor, rope_freqs:torch.Tensor):
         B,T,C = x.shape
         q = self.q(x)
-        q = q.view(B, T, self.n_head,C//self.n_head ).transpose(1,2)
+        q = q.view(B, T, self.n_head,self.head_dim ).transpose(1,2)
         
         k,v = self.kv(x).chunk(2, dim=-1)
-        k = k.view(B, T, self.n_kv_head,C//self.n_head).transpose(1,2)
-        v = v.view(B, T, self.n_kv_head,C//self.n_head).transpose(1,2)
+        k = k.view(B, T, self.n_kv_head,self.head_dim).transpose(1,2)
+        v = v.view(B, T, self.n_kv_head,self.head_dim).transpose(1,2)
 
         q, k = apply_rope(q,k, rope_freqs, x.device)
 
