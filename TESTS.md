@@ -43,3 +43,10 @@
   - Further considerations: Before the modifications of the training script, I was able to achieve better loss of 3.08 with from pretrained gpt-2 with 2 days of training. With the current script I achieved 3.38 with 31h of training but with a more stable training from scratch, not pretrained weights. After adding schedulers, mix precisions, weight decaying and much more training features, I wasn't able to train the model from pretrained weights, the model validation loss kept increasing after the first 500 steps (6 loss) and after 2k steps, the training los kept increasing from 4 to 5. I could only train the model from scratch with float32. I should investigate why the model is not learning from pretrained weights (maybe some problem with the bf16 dtype). Some people posted on Kaprathy's repo that the training loss was exploding when using Karpathy's setup around step 20k.
   - Additional comments: I could keep training the model (maybe i will) until I achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model. 
   ![training-validation-curve](image.png)
+- GPT-2 Rope + GQA:
+  - Context: Implemented GQA (Grouped Query Attention) to improve the model. The model was trained with 16 query heads and 4 key-value heads. 
+  - Model params:113M
+  - Results: The model trained much faster than the best result achieved before (take a look to the images comparing both runs). The model achieved better validation and training loss not only faster but also with less steps. The time per step was reduced from 1.8s to 0.8s and the model was using 14gb vs 26gb (the gpt-2 without gqa) of the gpu memory. With almost 24h of training the model achieved a validation loss of 3.305 vs 3.507. 
+  - Conclusions: Significant improvement not only on the training time but also on the achieved loss with less trainable params (113M vs 123M).
+  ![alt text](image-1.png)
+  

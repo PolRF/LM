@@ -8,12 +8,12 @@ The main goal of this project is to provide a comprehensive and detailed impleme
 
 ## Achieved Goals
   Improved GPT-2 model:
-  - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), flash attention and learning rate decay while training.
+  - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), GQA, flash attention and learning rate decay while training.
   - Model params: 123M
   - Results: 3.08 val loss after 2000 steps and a lowest training loss of 2.88. With further training, 3.029 validation loss was achieved. Minimum training loss at 2.71
   - Conclusions: A improvement from the original GPT-2 according to the Karpathy's nanogpt baseline of 3.11 train loss and 3.12 val loss. The loss was still decaying when the training achieved 5000 steps so I could keep training in order to achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model.
   - Further improvements: Change hyperparams to improve the model and keep training it until we can outperform the finetuned baseline of 2.85 val loss. We can add GQA in order to upscale the model and achieve better results.
-  
+
 ## Results:
 The results of the experiments can be found in the [TESTS.md](TESTS.md) file.
 
@@ -31,11 +31,11 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement weight sharing between token embedding and the last lm_head layer
 - [x] Improve the RoPE implementation to apply the rotation to both the queries and keys at the same time
 - [x] Implement weight tying (https://arxiv.org/pdf/1608.05859.pdf)
-- [ ] Implement "model surgery to decrease the block size"
 - [x] Scale the model to visualize better the improvements
+- [x] Implement Grouped Query Attention (GQA)
+- [ ] Implement "model surgery to decrease the block size"
 - [ ] Implement KV-cache
 - [ ] Implement Mixture of Experts (Mixtral)
-- [ ] Implement Grouped Query Attention (GQA)
 - [ ] Sliding Window Attention (SWA)
 - [ ] Mistral 7B
 - [ ] Mixtral 8x7B
@@ -62,18 +62,11 @@ The following are among the planned future works and 'To Do' items for this proj
 
 ### Training improvements:
 
-- [ ] New SOTA AdamW optimizer
-- [ ] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement flash attention to speed up training
 - [x] Use a larger dataset to avoid overfitting
-- [ ] Implement caching for the attention mechanism (across the model)
 - [x] Dynamic learning rate
-- [ ] Implement gradient checkpointing to reduce memory usage
 - [x] Implement model checkpoint saving for resuming training
 - [x] Better visualization of training metrics
-- [ ] Implement early stopping
-- [ ] Add pytorch profiler to debug bottlenecks
-- [ ] Take a look at pytorch lightning
 - [x] Config different precision for different parts of the model
 - [x] Compile the model
 - [x] Config optimizer (to be more efficient)
@@ -81,6 +74,13 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement gradient clipping
 - [x] Implement gradient accumulation (micro-batching)
 - [x] Implement mixed precision training
+- [x] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
+- [ ] New SOTA AdamW optimizer
+- [ ] Implement caching for the attention mechanism (across the model)
+- [ ] Implement gradient checkpointing to reduce memory usage
+- [ ] Implement early stopping
+- [ ] Add pytorch profiler to debug bottlenecks
+- [ ] Take a look at pytorch lightning
 - [ ] Implement distributed training (?)
 - [ ] Implement model parallelism (?)
 - [ ] Implement data parallelism (?)
