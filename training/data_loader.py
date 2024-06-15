@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 import os
-
+from data.fineweb_edu.prepare import prepare
 def load_tokens(filename):
     npt = np.load(filename)
     npt = npt.astype(np.int32) # added after video
@@ -39,7 +39,8 @@ class FineWebEduDataLoader(DataLoader):
         shards = sorted(shards)
         shards = [os.path.join(data_root, s) for s in shards]
         self.shards = shards
-        assert len(shards) > 0, f"no shards found for split {split}"
+        if len(shards) == 0:
+            prepare()
         print(f"found {len(shards)} shards for split {split}")
         self.reset()
 
