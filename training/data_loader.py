@@ -33,7 +33,7 @@ class FineWebEduDataLoader(DataLoader):
         assert split in {'train', 'val'}
         # get the shard filenames
         data_root = "edu_fineweb10B"
-        if os.path.exists(data_root) == False:
+        if not os.path.exists(data_root):
             prepare()
         shards = os.listdir(data_root)
         shards = [s for s in shards if split in s]
