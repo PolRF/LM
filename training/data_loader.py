@@ -31,7 +31,6 @@ class FineWebEduDataLoader(DataLoader):
         self.process_rank = process_rank
         self.num_processes = num_processes
         assert split in {'train', 'val'}
-        self.reset() 
         # get the shard filenames
         data_root = "edu_fineweb10B"
         shards = os.listdir(data_root)
@@ -41,6 +40,7 @@ class FineWebEduDataLoader(DataLoader):
         self.shards = shards
         if len(shards) == 0:
             prepare()
+        self.reset() 
         print(f"found {len(shards)} shards for split {split}")
         self.reset()
 
