@@ -284,5 +284,5 @@ def test_generation():
 if __name__ == '__main__':
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
     os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
-    train(Dataset.OPENWEBTEXT)
+    train(Dataset.FINEWEB_EDU)
     # test_generation()
