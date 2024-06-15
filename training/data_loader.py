@@ -12,12 +12,7 @@ def load_tokens(filename):
 class DataLoader(ABC):
 
     def __init__(self, B, T, process_rank, num_processes, split):
-        self.B = B
-        self.T = T
-        self.process_rank = process_rank
-        self.num_processes = num_processes
-        assert split in {'train', 'val'}
-        self.reset()
+        pass
 
     @abstractmethod
     def reset(self):
@@ -31,7 +26,12 @@ class DataLoader(ABC):
 
 class FineWebEduDataLoader(DataLoader):
     def __init__(self, B, T, process_rank, num_processes, split):
-        super().__init__(B, T, process_rank, num_processes, split)
+        self.B = B
+        self.T = T
+        self.process_rank = process_rank
+        self.num_processes = num_processes
+        assert split in {'train', 'val'}
+        self.reset() 
         # get the shard filenames
         data_root = "edu_fineweb10B"
         shards = os.listdir(data_root)
