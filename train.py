@@ -13,7 +13,6 @@ from model import ModelConfig, GPTLM
 import numpy as np
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
-from data.openwebtext import prepare as prepare_openwebtext
 import torch.nn as nn
 
 from training.data_loader import FineWebEduDataLoader

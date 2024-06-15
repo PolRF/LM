@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 import torch
 import os
-from data.fineweb_edu.prepare import prepare
 def load_tokens(filename):
     npt = np.load(filename)
     npt = npt.astype(np.int32) # added after video
@@ -33,7 +32,6 @@ class FineWebEduDataLoader(DataLoader):
         assert split in {'train', 'val'}
         # get the shard filenames
         data_root = "edu_fineweb10B"
-        
         shards = os.listdir(data_root)
         shards = [s for s in shards if split in s]
         shards = sorted(shards)
