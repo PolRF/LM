@@ -164,18 +164,18 @@ def train(dataset:Dataset):
     
     tr_config = TrainConfig(
         model="RoPeGPT2",
-        batch_size=12,
+        batch_size=32,
         block_size=1024,
         eval_iters=200,
         init_lr = 6e-4, # for lr decay (TODO need a lower lr????)
         lr = 6e-4,
         min_lr=6e-5,
-        warmup_iters=20_000,
-        lr_decay_iters=600_000,
+        warmup_iters=10_000,
+        lr_decay_iters=100_000,
         weight_decay=1e-1,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=5,
+        gradient_accumulation_steps=16,
         from_pretrained=False,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
@@ -195,7 +195,7 @@ def train(dataset:Dataset):
         os.makedirs(tr_config.checkpoint_output_dir)
     # Override device for Macbook pro m2 chip
     # tr_config.device=torch.device("mps")
-    max_iters = 600_000
+    max_iters = 100_000
     eval_interval = 500
     model_config = ModelConfig(
         vocab_size=50304,
@@ -297,6 +297,7 @@ def train(dataset:Dataset):
             scaler.scale(loss).backward()
         if tr_config.grad_clip != 0.0:
             scaler.unscale_(optimizer)
+            # This is done in case there is a bad batch that causes the gradients to explode.
             torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
         wandb.log({
                 "iter": iter_num,
