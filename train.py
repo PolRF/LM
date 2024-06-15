@@ -201,7 +201,7 @@ def train(dataset:Dataset):
         vocab_size=50304,
         block_size=1024,
         device=tr_config.device,
-        dropout=0.0,
+        dropout=0.1,
         n_head=16,
         n_kv_heads=4,
     )
@@ -255,7 +255,7 @@ def train(dataset:Dataset):
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="gpt2-gqa", config=tr_config.__dict__)
+    wandb.init(project=wandb_project, name="gpt2-gqa-0.5M", config=tr_config.__dict__)
     # Init the first batch
     xb, yb = get_batch('train', tr_config,dataset)
     while True:
