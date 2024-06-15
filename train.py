@@ -134,7 +134,7 @@ def train(dataset:Dataset):
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
     ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[tr_config.dtype]
-    ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.amp.autocast(device_type=tr_config.device.type, dtype=ptdtype)
+    ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.autocast(device_type=tr_config.device.type, dtype=ptdtype)
 
     if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
         print(f"Creating directory: {tr_config.checkpoint_output_dir}")
@@ -154,7 +154,6 @@ def train(dataset:Dataset):
 
     # Iterator only
     start_time = time.time() 
-    durations = []
     iter_num = 0
     best_val_loss = 1e9
     model = GPTLM(model_config)
@@ -219,9 +218,9 @@ def train(dataset:Dataset):
                 "iter": iter_num,
                 "val/loss": losses['val'],
                 "lr": lr,
-                "time": np.mean(durations) if len(durations)>0 else 0,
+                "time": time.time() - time_0,
             })
-            print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, full time: {round(time.time()-start_time, 5)}" )
+            print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {time.time()-time_0:3f}, full time: {round(time.time()-start_time, 5)}" )
             if losses['val'] < best_val_loss or tr_config.always_save_checkpoint:
                 best_val_loss = losses['val']
                 if iter_num > 0:
@@ -238,29 +237,35 @@ def train(dataset:Dataset):
                     torch.save(checkpoint, os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt'))
         model.train()
         optimizer.zero_grad()
-        micro_loss = []
+        loss_accum = 0.0
         for micro_step in range(tr_config.gradient_accumulation_steps):
             x, y = train_loader.next_batch()
             with ctx:
                 logits, loss = model(x, y)
-            micro_loss.append(loss.item())
+            
             loss = loss / tr_config.gradient_accumulation_steps
+            loss_accum += loss.detach()
             # There is no need of using scaler is we are not using float16
             loss.backward()
         if tr_config.grad_clip != 0.0:
             # This is done in case there is a bad batch that causes the gradients to explode.
             torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
-        wandb.log({
-                "iter": iter_num,
-                "train/loss": np.mean(micro_loss),
-                "lr": lr,
-                "time": np.mean(durations) if len(durations)>0 else 0,
-            })
-        print(f"step {iter_num}: train loss {np.mean(micro_loss):.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
+        # Wait for the GPU to finish
+        torch.cuda.synchronize()
         time_elapsed = time.time() - time_0
-        durations.append(time_elapsed)
+        tokens_processed = tr_config.batch_size * tr_config.block_size * tr_config.gradient_accumulation_steps
+        tokens_per_sec = tokens_processed / time_elapsed
+        wandb.log({
+                "iter": iter_num,
+                "train/loss": loss_accum.item(),
+                "lr": lr,
+                "time": time_elapsed,
+                "tokens_per_sec": tokens_per_sec,
+            })
+        print(f"step {iter_num}: train loss {loss_accum.item():.4f}, time (s): {time_elapsed:.4f}, lr: {lr:.5f}, tok/sec: {tokens_per_sec:.2f}")
+
         iter_num += 1
         if iter_num >= max_iters:
             break
