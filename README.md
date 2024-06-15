@@ -76,8 +76,8 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement gradient accumulation (micro-batching)
 - [x] Implement mixed precision training
 - [x] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
+- [x] Use Fineweb dataset instead of Openwebtext
 - [ ] Implement some validations --> Hellaswag
-- [ ] Use Fineweb dataset instead of Openwebtext
 - [ ] Read GPTP-3 paper to improve the training of the model (https://arxiv.org/abs/2005.14165)
 - [ ] New SOTA AdamW optimizer
 - [ ] Implement caching for the attention mechanism (across the model)

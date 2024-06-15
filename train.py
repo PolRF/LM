@@ -15,6 +15,8 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from data.openwebtext import prepare as prepare_openwebtext
 import torch.nn as nn
+
+from training.data_loader import FineWebEduDataLoader
 # Tensorboard logs writers
 writer = SummaryWriter("runs/gqa")
 import wandb
@@ -46,64 +48,9 @@ class TrainConfig:
 
 
 class Dataset(Enum):
-    BIBLE = 'bible'
-    SHAKESPEARE = 'shakespeare'
-    OPENWEBTEXT = 'openwebtext'
+    FINEWEB_EDU = 'fineweb_edu'
 
 
-def prepare_data(dataset:Dataset):
-    print(f"Preparing data for {dataset.name}")
-    path = None
-    encoding = None
-    match dataset:
-        case Dataset.BIBLE:
-            path ='bible_es.txt'
-            encoding = "iso-8859-1"
-        case Dataset.SHAKESPEARE:
-            path = 'shakespeare.txt'
-            encoding = "utf-8"
-        case Dataset.OPENWEBTEXT:
-            prepare_openwebtext.prepare()
-            return
-
-    data = open(BASE_DATA_PATH+path,encoding=encoding).read()
-    n = len(data)
-    train_data = data[:int(n*0.9)]
-    val_data = data[int(n*0.9):]
-    enc = tiktoken.get_encoding("gpt2")
-    train_ids = enc.encode_ordinary(train_data)
-    val_ids = enc.encode_ordinary(val_data)
-    print(f"train has {len(train_ids):,} tokens")
-    print(f"val has {len(val_ids):,} tokens")
-
-    # export to bin files
-    train_ids = np.array(train_ids, dtype=np.uint16)
-    val_ids = np.array(val_ids, dtype=np.uint16)
-    os.makedirs(BASE_DATA_PATH+dataset.name, exist_ok=True)
-    train_ids.tofile(os.path.join(BASE_DATA_PATH+dataset.name+"/", 'train.bin'))
-    val_ids.tofile(os.path.join(BASE_DATA_PATH+dataset.name+"/", 'val.bin'))
-    print("Data prepared")
-
-def get_batch(split, config: TrainConfig,dataset:Dataset):
-    data_path = BASE_DATA_PATH+dataset.name.lower()+"/"
-    if not os.path.isfile(data_path+"train.bin") or not os.path.isfile(data_path+"val.bin"):
-        prepare_data(dataset)
-    
-    # We recreate np.memmap every batch to avoid a memory leak, as per
-    # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
-    if split == 'train':
-        data = np.memmap(os.path.join(data_path, 'train.bin'), dtype=np.uint16, mode='r')
-    else:
-        data = np.memmap(os.path.join(data_path, 'val.bin'), dtype=np.uint16, mode='r')
-    ix = torch.randint(len(data) - config.block_size, (config.batch_size,))
-    x = torch.stack([torch.from_numpy((data[i:i+config.block_size]).astype(np.int64)) for i in ix])
-    y = torch.stack([torch.from_numpy((data[i+1:i+1+config.block_size]).astype(np.int64)) for i in ix])
-    if config.device == 'cuda':
-        # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
-        x, y = x.pin_memory().to(config.device, non_blocking=True), y.pin_memory().to(config.device, non_blocking=True)
-    else:
-        x, y = x.to(config.device), y.to(config.device)
-    return x, y
 
 @torch.no_grad()
 def estimate_loss(model, config: TrainConfig,dataset:Dataset, ctx=nullcontext() or torch.amp.autocast):
@@ -212,44 +159,44 @@ def train(dataset:Dataset):
     iter_num = 0
     best_val_loss = 1e9
     model = GPTLM(model_config)
-    if tr_config.from_pretrained and not tr_config.resume_from_checkpoint:
-        if tr_config.model == "RoPeGPT2":
-            model, config = from_pretrained_rope_gpt2(tr_config.device)
-        else:
-            raise ValueError("Loading from pretrained is only supported for RoPeGPT2 model.")
-        model_config=config
-    if tr_config.from_pretrained and tr_config.resume_from_checkpoint:
-        print("Ignoring from_pretrained flag since we are resuming from a checkpoint")
-    if tr_config.resume_from_checkpoint:
-        # This is a copy-paste from the Andrej Karpathy code, should be refined later
-        print(f"Resuming training from {tr_config.checkpoint_output_dir}")
-        # resume training from a checkpoint.
-        ckpt_path = os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt')
-        checkpoint = torch.load(ckpt_path, map_location=tr_config.device)
-        checkpoint_model_args = checkpoint['model_args']
-        # force these config attributes to be equal otherwise we can't even resume training
-        # the rest of the attributes (e.g. dropout) can stay as desired from command line
-        # for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
-        #     setattr(dict_config, k, checkpoint_model_args[k])
-        # create the model
+    # TODO: Move to other files
+    # if tr_config.from_pretrained and not tr_config.resume_from_checkpoint:
+    #     if tr_config.model == "RoPeGPT2":
+    #         model, config = from_pretrained_rope_gpt2(tr_config.device)
+    #     else:
+    #         raise ValueError("Loading from pretrained is only supported for RoPeGPT2 model.")
+    #     model_config=config
+    # if tr_config.from_pretrained and tr_config.resume_from_checkpoint:
+    #     print("Ignoring from_pretrained flag since we are resuming from a checkpoint")
+    # if tr_config.resume_from_checkpoint:
+    #     # This is a copy-paste from the Andrej Karpathy code, should be refined later
+    #     print(f"Resuming training from {tr_config.checkpoint_output_dir}")
+    #     # resume training from a checkpoint.
+    #     ckpt_path = os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt')
+    #     checkpoint = torch.load(ckpt_path, map_location=tr_config.device)
+    #     checkpoint_model_args = checkpoint['model_args']
+    #     # force these config attributes to be equal otherwise we can't even resume training
+    #     # the rest of the attributes (e.g. dropout) can stay as desired from command line
+    #     # for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+    #     #     setattr(dict_config, k, checkpoint_model_args[k])
+    #     # create the model
 
-        model = GPTLM(model_config)
-        print(f"Model args: {checkpoint_model_args}")
-        state_dict = checkpoint['model']
-        # fix the keys of the state dictionary :(
-        # this prefix is present when saving compiled model
-        unwanted_prefix = '_orig_mod.'
-        for k,v in list(state_dict.items()):
-            if k.startswith(unwanted_prefix):
-                state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
-        model.load_state_dict(state_dict)
-        iter_num = checkpoint['iter_num']
-        best_val_loss = checkpoint['best_val_loss']
+    #     model = GPTLM(model_config)
+    #     print(f"Model args: {checkpoint_model_args}")
+    #     state_dict = checkpoint['model']
+    #     # fix the keys of the state dictionary :(
+    #     # this prefix is present when saving compiled model
+    #     unwanted_prefix = '_orig_mod.'
+    #     for k,v in list(state_dict.items()):
+    #         if k.startswith(unwanted_prefix):
+    #             state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+    #     model.load_state_dict(state_dict)
+    #     iter_num = checkpoint['iter_num']
+    #     best_val_loss = checkpoint['best_val_loss']
     checkpoint=None
     assert model
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
     model.to(tr_config.device)
-    scaler = torch.cuda.amp.GradScaler(enabled=(tr_config.dtype == 'float16'))
     if tr_config.compile:
         model = torch.compile(model)
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
@@ -257,7 +204,8 @@ def train(dataset:Dataset):
     wandb_project = "gpt2"
     wandb.init(project=wandb_project, name="gpt2-gqa-0.5M", config=tr_config.__dict__)
     # Init the first batch
-    xb, yb = get_batch('train', tr_config,dataset)
+    train_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="train")
+    val_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="val")
     while True:
         time_0 = time.time()
         lr = get_lr(tr_config, iter_num)
@@ -265,6 +213,8 @@ def train(dataset:Dataset):
             param_group['lr'] = lr
         # every once in a while evaluate the loss on train and val sets
         if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
+            model.eval()
+            val_loader.reset()
             losses = estimate_loss(model,tr_config,dataset, ctx)
             wandb.log({
                 "iter": iter_num,
@@ -287,16 +237,18 @@ def train(dataset:Dataset):
                     }
                     print(f"saving checkpoint to {tr_config.checkpoint_output_dir}")
                     torch.save(checkpoint, os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt'))
+        model.train()
+        optimizer.zero_grad()
         micro_loss = []
         for micro_step in range(tr_config.gradient_accumulation_steps):
+            x, y = train_loader.next_batch()
             with ctx:
-                logits, loss = model(xb, yb)
+                logits, loss = model(x, y)
             micro_loss.append(loss.item())
             loss = loss / tr_config.gradient_accumulation_steps
-            xb, yb = get_batch('train', tr_config,dataset)
-            scaler.scale(loss).backward()
+            # There is no need of using scaler is we are not using float16
+            loss.backward()
         if tr_config.grad_clip != 0.0:
-            scaler.unscale_(optimizer)
             # This is done in case there is a bad batch that causes the gradients to explode.
             torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
         wandb.log({
@@ -306,8 +258,7 @@ def train(dataset:Dataset):
                 "time": np.mean(durations) if len(durations)>0 else 0,
             })
         print(f"step {iter_num}: train loss {np.mean(micro_loss):.4f}, time (s): {np.mean(durations).round(5) if len(durations)>0 else 0}, lr: {lr}" )
-        scaler.step(optimizer)
-        scaler.update()
+        optimizer.step()
         optimizer.zero_grad(set_to_none=True)
         time_elapsed = time.time() - time_0
         durations.append(time_elapsed)
