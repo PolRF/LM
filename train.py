@@ -199,7 +199,7 @@ def train(dataset:Dataset):
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="gpt2-gqa-0.5M", config=tr_config.__dict__)
+    wandb.init(project=wandb_project, name="gpt2-gqa-0.5M-A100", config=tr_config.__dict__)
     # Init the first batch
     train_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="train")
     val_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="val")
