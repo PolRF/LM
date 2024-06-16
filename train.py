@@ -219,7 +219,7 @@ def train(dataset:Dataset):
                 "lr": lr,
                 "time": time.time() - time_0,
             })
-            print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {time.time()-time_0:3f}, full time: {round(time.time()-start_time, 5)}" )
+            print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {time.time()-time_0:3f}" )
             if losses['val'] < best_val_loss or tr_config.always_save_checkpoint:
                 best_val_loss = losses['val']
                 if iter_num > 0:
