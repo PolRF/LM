@@ -1,3 +1,15 @@
+
+
+import os
+from typing import Literal
+
+import torch
+
+from load import from_pretrained_rope_gpt2
+from model import GPTLM, ModelConfig
+from train import TrainConfig
+
+
 from typing import Literal
 import torch
 from transformers import GPT2LMHeadModel
@@ -60,3 +72,30 @@ def from_pretrained_rope_gpt2(device:torch.device) -> tuple[GPTLM, ModelConfig]:
                 sd[k_mine].copy_(sd_hf[k])
     
     return model, model_config
+
+def resume_from_checkpoints(config:TrainConfig,model_config:ModelConfig) -> tuple[GPTLM, int, float]:
+    # This is a copy-paste from the Andrej Karpathy code, should be refined later
+    print(f"Resuming training from {config.checkpoint_output_dir}")
+    # resume training from a checkpoint.
+    ckpt_path = os.path.join(config.checkpoint_output_dir, 'ckpt.pt')
+    checkpoint = torch.load(ckpt_path, map_location=config.device)
+    checkpoint_model_args = checkpoint['model_args']
+    # force these config attributes to be equal otherwise we can't even resume training
+    # the rest of the attributes (e.g. dropout) can stay as desired from command line
+    # for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
+    #     setattr(dict_config, k, checkpoint_model_args[k])
+    # create the model
+
+    model = GPTLM(model_config)
+    print(f"Model args: {checkpoint_model_args}")
+    state_dict = checkpoint['model']
+    # fix the keys of the state dictionary :(
+    # this prefix is present when saving compiled model
+    unwanted_prefix = '_orig_mod.'
+    for k,v in list(state_dict.items()):
+        if k.startswith(unwanted_prefix):
+            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+    model.load_state_dict(state_dict)
+    iter_num = checkpoint['iter_num']
+    best_val_loss = checkpoint['best_val_loss']
+    return model, iter_num, best_val_loss

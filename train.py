@@ -8,7 +8,7 @@ import tiktoken
 import torch
 import inspect
 
-from load import from_pretrained_rope_gpt2
+from training.model_loader import from_pretrained_rope_gpt2, resume_from_checkpoints 
 from model import ModelConfig, GPTLM
 import numpy as np
 import os
@@ -38,11 +38,10 @@ class TrainConfig:
     # dtype: str
     checkpoint_output_dir: str
     gradient_accumulation_steps: int = 5 * 8
-    from_pretrained: bool = False
-    resume_from_checkpoint: bool = False
     always_save_checkpoint: bool = False
     compile: bool = False
     grad_clip: float = 1.0
+    loading_mode: Literal["from_scratch","from_pretrained","resume_from_checkpoint"] = "from_scratch"
 
 
 
@@ -125,10 +124,9 @@ def train(dataset:Dataset):
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
         gradient_accumulation_steps=32,
-        from_pretrained=False,
+        loading_mode = "from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
-        resume_from_checkpoint=False,
         compile=False,
         grad_clip=1.0
     )
@@ -156,40 +154,12 @@ def train(dataset:Dataset):
     iter_num = 0
     best_val_loss = 1e9
     model = GPTLM(model_config)
-    # TODO: Move to other files
-    # if tr_config.from_pretrained and not tr_config.resume_from_checkpoint:
-    #     if tr_config.model == "RoPeGPT2":
-    #         model, config = from_pretrained_rope_gpt2(tr_config.device)
-    #     else:
-    #         raise ValueError("Loading from pretrained is only supported for RoPeGPT2 model.")
-    #     model_config=config
-    # if tr_config.from_pretrained and tr_config.resume_from_checkpoint:
-    #     print("Ignoring from_pretrained flag since we are resuming from a checkpoint")
-    # if tr_config.resume_from_checkpoint:
-    #     # This is a copy-paste from the Andrej Karpathy code, should be refined later
-    #     print(f"Resuming training from {tr_config.checkpoint_output_dir}")
-    #     # resume training from a checkpoint.
-    #     ckpt_path = os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt')
-    #     checkpoint = torch.load(ckpt_path, map_location=tr_config.device)
-    #     checkpoint_model_args = checkpoint['model_args']
-    #     # force these config attributes to be equal otherwise we can't even resume training
-    #     # the rest of the attributes (e.g. dropout) can stay as desired from command line
-    #     # for k in ['n_layer', 'n_head', 'n_embd', 'block_size', 'bias', 'vocab_size']:
-    #     #     setattr(dict_config, k, checkpoint_model_args[k])
-    #     # create the model
-
-    #     model = GPTLM(model_config)
-    #     print(f"Model args: {checkpoint_model_args}")
-    #     state_dict = checkpoint['model']
-    #     # fix the keys of the state dictionary :(
-    #     # this prefix is present when saving compiled model
-    #     unwanted_prefix = '_orig_mod.'
-    #     for k,v in list(state_dict.items()):
-    #         if k.startswith(unwanted_prefix):
-    #             state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
-    #     model.load_state_dict(state_dict)
-    #     iter_num = checkpoint['iter_num']
-    #     best_val_loss = checkpoint['best_val_loss']
+    if tr_config.loading_mode == "from_pretrained":
+        model, model_config = from_pretrained_rope_gpt2(tr_config.device)
+    elif tr_config.loading_mode == "resume_from_checkpoint":
+        model, iter_num, best_val_loss = resume_from_checkpoints(tr_config,model_config)
+    
+    
     checkpoint=None
     assert model
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
