@@ -35,7 +35,7 @@ class TrainConfig:
     warmup_iters:int
     weight_decay: float
     device: torch.device
-    dtype: str
+    # dtype: str
     checkpoint_output_dir: str
     gradient_accumulation_steps: int = 5 * 8
     from_pretrained: bool = False
@@ -52,15 +52,18 @@ class Dataset(Enum):
 
 
 @torch.no_grad()
-def estimate_loss(model, config: TrainConfig,dataset:Dataset, ctx=nullcontext() or torch.amp.autocast):
+def estimate_loss(model, config: TrainConfig,dataset:Dataset,train_loader,validation_loader ):
     out = {}
     model.eval()
     for split in ['train', 'val']:
         losses = torch.zeros(config.eval_iters)
         for k in range(config.eval_iters):
-            X, Y = get_batch(split,config,dataset)
-            with ctx:
-                logits, loss = model(X, Y)
+            if split=="train":
+                X, Y = train_loader.next_batch()
+            else:
+                X, Y = validation_loader.next_batch()
+            X, Y = X.to(config.device), Y.to(config.device)
+            logits, loss = model(X, Y)
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()
@@ -100,8 +103,8 @@ def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, de
     # Create AdamW optimizer and use the fused version if it is available
     fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
     use_fused = fused_available and device_type == 'cuda'
-    extra_args = dict(fused=True) if use_fused else dict()
-    optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, **extra_args)
+
+    optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas,fused=use_fused)
     print(f"using fused AdamW: {use_fused}")
 
     return optimizer
@@ -110,7 +113,7 @@ def train(dataset:Dataset):
     
     tr_config = TrainConfig(
         model="RoPeGPT2",
-        batch_size=32,
+        batch_size=16,
         block_size=1024,
         eval_iters=200,
         init_lr = 6e-4, # for lr decay (TODO need a lower lr????)
@@ -120,21 +123,18 @@ def train(dataset:Dataset):
         lr_decay_iters=100_000,
         weight_decay=1e-1,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
-        dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=16,
+        # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
+        gradient_accumulation_steps=32,
         from_pretrained=False,
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
         resume_from_checkpoint=False,
-        compile=True,
+        compile=False,
         grad_clip=1.0
     )
-    print("using dtype: ", tr_config.dtype)
     torch.manual_seed(1337)
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
-    ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[tr_config.dtype]
-    ctx = nullcontext() if tr_config.device.type== 'cpu' else torch.autocast(device_type=tr_config.device.type, dtype=ptdtype)
+    torch.set_float32_matmul_precision('high')
+
 
     if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
         print(f"Creating directory: {tr_config.checkpoint_output_dir}")
@@ -153,7 +153,6 @@ def train(dataset:Dataset):
     )
 
     # Iterator only
-    start_time = time.time() 
     iter_num = 0
     best_val_loss = 1e9
     model = GPTLM(model_config)
@@ -213,7 +212,7 @@ def train(dataset:Dataset):
         if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
             model.eval()
             val_loader.reset()
-            losses = estimate_loss(model,tr_config,dataset, ctx)
+            losses = estimate_loss(model,tr_config,dataset,train_loader,val_loader)
             wandb.log({
                 "iter": iter_num,
                 "val/loss": losses['val'],
@@ -240,18 +239,18 @@ def train(dataset:Dataset):
         loss_accum = 0.0
         for micro_step in range(tr_config.gradient_accumulation_steps):
             x, y = train_loader.next_batch()
-            with ctx:
+            x, y = x.to(tr_config.device), y.to(tr_config.device)
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 logits, loss = model(x, y)
             
             loss = loss / tr_config.gradient_accumulation_steps
             loss_accum += loss.detach()
             # There is no need of using scaler is we are not using float16
             loss.backward()
-        if tr_config.grad_clip != 0.0:
-            # This is done in case there is a bad batch that causes the gradients to explode.
-            torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
+
+        # This is done in case there is a bad batch that causes the gradients to explode.
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
         optimizer.step()
-        optimizer.zero_grad(set_to_none=True)
         # Wait for the GPU to finish
         torch.cuda.synchronize()
         time_elapsed = time.time() - time_0
@@ -264,7 +263,7 @@ def train(dataset:Dataset):
                 "time": time_elapsed,
                 "tokens_per_sec": tokens_per_sec,
             })
-        print(f"step {iter_num}: train loss {loss_accum.item():.4f}, time (s): {time_elapsed:.4f}, lr: {lr:.5f}, tok/sec: {tokens_per_sec:.2f}")
+        print(f"step {iter_num}: train loss {loss_accum.item():.4f}, time (s): {time_elapsed:.4f}, lr: {lr:.7f}, tok/sec: {tokens_per_sec:.2f}")
 
         iter_num += 1
         if iter_num >= max_iters:
