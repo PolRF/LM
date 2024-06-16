@@ -22,6 +22,7 @@ import wandb
 
 BASE_DATA_PATH = './data/'
 BASE_CHECKPOINT_PATH = './checkpoints_with_training_gqa/'
+BASE_PROFILER_PATH = './profiler/'
 @dataclass
 class TrainConfig:
     model: Literal["RoPeGPT2","GQAGPT2"]
@@ -42,6 +43,7 @@ class TrainConfig:
     compile: bool = False
     grad_clip: float = 1.0
     loading_mode: Literal["from_scratch","from_pretrained","resume_from_checkpoint"] = "from_scratch"
+    profile: bool = False
 
 
 
@@ -128,7 +130,8 @@ def train(dataset:Dataset):
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
         compile=False,
-        grad_clip=1.0
+        grad_clip=1.0,
+        profile=True
     )
     torch.manual_seed(1337)
     torch.set_float32_matmul_precision('high')
@@ -169,11 +172,31 @@ def train(dataset:Dataset):
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb.init(project=wandb_project, name="gpt2-gqa-0.5M-A100", config=tr_config.__dict__)
+    wandb_name = "gpt2-gqa-0.5M-A100"
+    wandb.init(project=wandb_project, name=wandb_name, config=tr_config.__dict__)
+    wandb.watch(model)
+    profiler=None
+    if tr_config.profile:
+        profile_dir = os.path.join(BASE_PROFILER_PATH, wandb_project, wandb_name)
+        profiler = torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA],
+            schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler(profile_dir),
+            record_shapes=True,
+            with_stack=True,
+            with_flops=True,
+        )
+        profiler.start()
+
     # Init the first batch
     train_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="train")
     val_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="val")
     while True:
+        if tr_config.profile:
+            assert profiler
+            profiler.step()
         time_0 = time.time()
         lr = get_lr(tr_config, iter_num)
         for param_group in optimizer.param_groups:
@@ -243,7 +266,9 @@ def train(dataset:Dataset):
         iter_num += 1
         if iter_num >= max_iters:
             break
-        
+    if tr_config.profile:
+        assert profiler
+        profiler.stop()
     writer.close()
 
 def test_generation():

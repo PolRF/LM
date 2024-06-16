@@ -33,6 +33,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement weight tying (https://arxiv.org/pdf/1608.05859.pdf)
 - [x] Scale the model to visualize better the improvements
 - [x] Implement Grouped Query Attention (GQA)
+- [x] Check training with autocast disabled for apply_rope
 - [ ] Implement "model surgery to decrease the block size"
 - [ ] Implement KV-cache
 - [ ] Implement Mixture of Experts (Mixtral)

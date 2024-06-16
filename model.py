@@ -56,7 +56,7 @@ def _rope_frequency(head_dim:int,seq_len:int, device:str, theta:float = 10000.0)
     f = torch.polar(matrix,frequencies)
     return f
 
-@torch.jit.script
+
 def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> tuple[torch.Tensor, torch.Tensor]:
     """
     Apply the rotary position embedding to the input tensor.
@@ -203,7 +203,8 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
         k = k.view(B, T, self.n_kv_head,self.head_dim).transpose(1,2)
         v = v.view(B, T, self.n_kv_head,self.head_dim).transpose(1,2)
 
-        q, k = apply_rope(q,k, rope_freqs, x.device)
+        with torch.autocast(enabled=False, device_type=str(x.device)):
+            q, k = apply_rope(q,k, rope_freqs, x.device)
         
         # Repeat the keys and values to match query heads
         k = k.repeat(1, self.q_kv_proportion, 1, 1)
