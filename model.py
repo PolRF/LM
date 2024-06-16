@@ -31,6 +31,7 @@ class GELU(nn.Module):
 
     
 
+@torch.jit.script
 def _rope_frequency(head_dim:int,seq_len:int, device:str, theta:float = 10000.0)-> torch.Tensor:
     """
     Frequency tensor for the rotary position embedding.
@@ -55,7 +56,7 @@ def _rope_frequency(head_dim:int,seq_len:int, device:str, theta:float = 10000.0)
     f = torch.polar(matrix,frequencies)
     return f
 
-
+@torch.jit.script
 def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, device:str)-> tuple[torch.Tensor, torch.Tensor]:
     """
     Apply the rotary position embedding to the input tensor.

@@ -205,7 +205,12 @@ def train(dataset:Dataset):
                     print(f"saving checkpoint to {tr_config.checkpoint_output_dir}")
                     torch.save(checkpoint, os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt'))
         model.train()
-        optimizer.zero_grad()
+
+        #TODO: compare optimizer.zero_grad(set_to_none=True) vs.
+        # for param in model.parameters():
+        #     param.grad = None
+        optimizer.zero_grad(set_to_none=True)
+
         loss_accum = 0.0
         for micro_step in range(tr_config.gradient_accumulation_steps):
             x, y = train_loader.next_batch()
