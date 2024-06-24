@@ -266,9 +266,10 @@ def train(dataset:Dataset):
         iter_num += 1
         if iter_num >= max_iters:
             break
-        if tr_config.profile and iter_num % 10 == 0:
+        if tr_config.profile and iter_num % 5 == 0:
             assert profiler
             profiler.stop()
+            profiler.export_chrome_trace("trace.json")
             break
     writer.close()
 
