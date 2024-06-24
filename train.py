@@ -110,11 +110,16 @@ def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, de
 
     return optimizer
 
+# def trace_handler(p):
+#     output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
+#     print(output)
+#     p.export_chrome_trace("/tmp/trace_" + str(p.step_num) + ".json")
+
 def train(dataset:Dataset):
     
     tr_config = TrainConfig(
         model="RoPeGPT2",
-        batch_size=16,
+        batch_size=1,#16,
         block_size=1024,
         eval_iters=200,
         init_lr = 6e-4, # for lr decay (TODO need a lower lr????)
@@ -125,7 +130,7 @@ def train(dataset:Dataset):
         weight_decay=1e-1,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=32,
+        gradient_accumulation_steps=1,#32,
         loading_mode = "from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
@@ -183,8 +188,8 @@ def train(dataset:Dataset):
                 torch.profiler.ProfilerActivity.CPU,
                 torch.profiler.ProfilerActivity.CUDA],
             schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler(profile_dir),
-            record_shapes=True,
+            # on_trace_ready=torch.profiler.tensorboard_trace_handler(profile_dir),
+            record_shapes=False,
             with_stack=True,
             with_flops=True,
         )
@@ -266,10 +271,10 @@ def train(dataset:Dataset):
         iter_num += 1
         if iter_num >= max_iters:
             break
-        if tr_config.profile and iter_num % 5 == 0:
+        if tr_config.profile and iter_num % 10 == 0:
             assert profiler
-            profiler.export_chrome_trace("trace.json")
             profiler.stop()
+            profiler.export_chrome_trace("./trace.json")
             break
     writer.close()
 
