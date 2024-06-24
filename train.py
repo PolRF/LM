@@ -268,8 +268,8 @@ def train(dataset:Dataset):
             break
         if tr_config.profile and iter_num % 5 == 0:
             assert profiler
-            profiler.stop()
             profiler.export_chrome_trace("trace.json")
+            profiler.stop()
             break
     writer.close()
 
