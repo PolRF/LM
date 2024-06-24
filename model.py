@@ -86,7 +86,6 @@ def apply_rope(q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, de
     # Convert the tensor to the original type and move it to the original device
     return q_out.type_as(q).to(device), k_out.type_as(k).to(device)
 
-
 class DecoderMultiHeadAttention(nn.Module):
     """
     Also known as Casual Self Attention.
@@ -132,7 +131,7 @@ class DecoderMultiHeadAttention(nn.Module):
 
 
         # Apply the rotary position embedding
-        q, k = apply_rope(q,k, rope_freqs, x.device)
+        q, k = apply_rope(q,k, rope_freqs, str(x.device))
 
         if self.flash:
             # Don't apply custom mask as the param is_causal already apply the mask
@@ -203,7 +202,7 @@ class DecoderGroupedQueryHeadAttention(nn.Module):
         k = k.view(B, T, self.n_kv_head,self.head_dim).transpose(1,2)
         v = v.view(B, T, self.n_kv_head,self.head_dim).transpose(1,2)
 
-        with torch.autocast(enabled=False, device_type=str(x.device)):
+        with torch.autocast(enabled=False, device_type=str("cuda")):
             q, k = apply_rope(q,k, rope_freqs, x.device)
         
         # Repeat the keys and values to match query heads
@@ -255,7 +254,7 @@ class AttentionBlock(nn.Module):
         
         # RoPE
         # We need to initialize the frequency tensor for the rotary position embedding
-        self.rope_frequencies = _rope_frequency(config.n_embd//config.n_head, config.block_size, device=config.device)
+        self.rope_frequencies = _rope_frequency(config.n_embd//config.n_head, config.block_size, device=str(config.device))
     
     def forward(self,x:torch.Tensor ):
         B, Seq_len, C = x.shape

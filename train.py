@@ -172,7 +172,7 @@ def train(dataset:Dataset):
     optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
     print(f"We are using device: {tr_config.device}")
     wandb_project = "gpt2"
-    wandb_name = "gpt2-gqa-0.5M-A100"
+    wandb_name = "gpt2-gqa-0.5M-"
     wandb.init(project=wandb_project, name=wandb_name, config=tr_config.__dict__)
     wandb.watch(model)
     profiler=None

@@ -2,3 +2,6 @@
 *.DS_Store
 *.bin
 *.pt
+*.npy
+/runs
+/wandb
