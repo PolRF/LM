@@ -119,7 +119,7 @@ def train(dataset:Dataset):
     
     tr_config = TrainConfig(
         model="RoPeGPT2",
-        batch_size=1,#16,
+        batch_size=16,
         block_size=1024,
         eval_iters=200,
         init_lr = 6e-4, # for lr decay (TODO need a lower lr????)
@@ -130,7 +130,7 @@ def train(dataset:Dataset):
         weight_decay=1e-1,
         device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=1,#32,
+        gradient_accumulation_steps=32,
         loading_mode = "from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
@@ -191,7 +191,7 @@ def train(dataset:Dataset):
             # on_trace_ready=torch.profiler.tensorboard_trace_handler(profile_dir),
             record_shapes=False,
             with_stack=True,
-            with_flops=False,
+            with_flops=True,
         )
         profiler.start()
 
