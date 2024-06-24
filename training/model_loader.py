@@ -5,9 +5,8 @@ from typing import Literal
 
 import torch
 
-from load import from_pretrained_rope_gpt2
 from model import GPTLM, ModelConfig
-from train import TrainConfig
+
 
 
 from typing import Literal
@@ -73,7 +72,7 @@ def from_pretrained_rope_gpt2(device:torch.device) -> tuple[GPTLM, ModelConfig]:
     
     return model, model_config
 
-def resume_from_checkpoints(config:TrainConfig,model_config:ModelConfig) -> tuple[GPTLM, int, float]:
+def resume_from_checkpoints(config,model_config:ModelConfig) -> tuple[GPTLM, int, float]:
     # This is a copy-paste from the Andrej Karpathy code, should be refined later
     print(f"Resuming training from {config.checkpoint_output_dir}")
     # resume training from a checkpoint.

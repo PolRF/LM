@@ -266,9 +266,10 @@ def train(dataset:Dataset):
         iter_num += 1
         if iter_num >= max_iters:
             break
-    if tr_config.profile:
-        assert profiler
-        profiler.stop()
+        if tr_config.profile and iter_num % 10 == 0:
+            assert profiler
+            profiler.stop()
+            break
     writer.close()
 
 def test_generation():
