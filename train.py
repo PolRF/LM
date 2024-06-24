@@ -1,6 +1,7 @@
 from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
+import glob
 import math
 import time
 from typing import Literal
@@ -110,10 +111,12 @@ def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, de
 
     return optimizer
 
-# def trace_handler(p):
-#     output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
-#     print(output)
-#     p.export_chrome_trace("/tmp/trace_" + str(p.step_num) + ".json")
+
+def trace_handler(p):
+    output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
+    print(output)
+    p.export_chrome_trace("/tmp/trace_" + str(p.step_num) + ".json")
+
 
 def train(dataset:Dataset):
     
@@ -274,7 +277,7 @@ def train(dataset:Dataset):
         if tr_config.profile and iter_num % 10 == 0:
             assert profiler
             profiler.stop()
-            profiler.export_chrome_trace("./trace.json")
+            profiler.export_chrome_trace(profile_dir)
             break
     writer.close()
 
@@ -294,5 +297,5 @@ def test_generation():
 if __name__ == '__main__':
     os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
     os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
-    train(Dataset.FINEWEB_EDU)
+    # train(Dataset.FINEWEB_EDU)
     # test_generation()

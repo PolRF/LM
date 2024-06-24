@@ -13,6 +13,8 @@ numpy = "^1.26.4"
 datasets = "^2.19.0"
 transformers = "^4.40.1"
 wandb = "^0.16.6"
+torch-tb-profiler = "^0.4.3"
+torchvision = "^0.18.1"
 
 
 [tool.poetry.group.dev.dependencies]

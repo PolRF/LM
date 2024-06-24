@@ -79,6 +79,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Take a look at chinchilla (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Use Fineweb dataset instead of Openwebtext
 - [x] Implement some optimizations to speed up training
+- [x] Add pytorch profiler
 - [ ] Check param initialization
 - [ ] Implement some validations --> Hellaswag
 - [ ] Re-read GPT-3 paper to improve the training of the model (https://arxiv.org/abs/2005.14165)
@@ -86,7 +87,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement caching for the attention mechanism (across the model)
 - [ ] Implement gradient checkpointing to reduce memory usage
 - [ ] Implement early stopping
-- [ ] Add pytorch profiler to debug bottlenecks
 - [ ] Take a look at pytorch lightning
 - [ ] Implement distributed training (?)
 - [ ] Implement model parallelism (?)
