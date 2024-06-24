@@ -191,7 +191,7 @@ def train(dataset:Dataset):
             # on_trace_ready=torch.profiler.tensorboard_trace_handler(profile_dir),
             record_shapes=False,
             with_stack=True,
-            with_flops=True,
+            with_flops=False,
         )
         profiler.start()
 
