@@ -309,7 +309,7 @@ class GPTLM(nn.Module):
     def forward(self, idx, targets=None):
         B, Seq_len = idx.shape
         # Get the device of the input
-        device = idx.device
+        # device = idx.device
         assert Seq_len <= self.block_size, f"Cannot forward sequence of length {Seq_len}, block size is only {self.block_size}"
 
         # idx and targets are both (B,T) tensor of integers

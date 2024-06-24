@@ -54,22 +54,17 @@ class Dataset(Enum):
 
 
 @torch.no_grad()
-def estimate_loss(model, config: TrainConfig,dataset:Dataset,train_loader,validation_loader ):
-    out = {}
-    model.eval()
-    for split in ['train', 'val']:
-        losses = torch.zeros(config.eval_iters)
-        for k in range(config.eval_iters):
-            if split=="train":
-                X, Y = train_loader.next_batch()
-            else:
-                X, Y = validation_loader.next_batch()
-            X, Y = X.to(config.device), Y.to(config.device)
-            logits, loss = model(X, Y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
-    model.train()
-    return out
+def estimate_loss(model, config: TrainConfig,validation_loader ):
+    val_loss_accum = 0.0
+    val_loss_steps = 20
+    for _ in range(val_loss_steps):
+        x, y = validation_loader.next_batch()
+        x, y = x.to(config.device), y.to(config.device)
+        with torch.autocast(device_type=config.device, dtype=torch.bfloat16):
+            logits, loss = model(x, y)
+        loss = loss / val_loss_steps
+        val_loss_accum += loss.detach()
+    return val_loss_accum.item()  # type: ignore
 
 # learning rate decay scheduler (cosine with warmup)
 def get_lr(config: TrainConfig,iteration):
@@ -137,7 +132,7 @@ def train(dataset:Dataset):
         loading_mode = "from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
-        compile=False,
+        compile=True,
         grad_clip=1.0,
         profile=True
     )
@@ -184,6 +179,7 @@ def train(dataset:Dataset):
     wandb.init(project=wandb_project, name=wandb_name, config=tr_config.__dict__)
     wandb.watch(model)
     profiler=None
+    profile_dir=None
     if tr_config.profile:
         profile_dir = os.path.join(BASE_PROFILER_PATH, wandb_project, wandb_name)
         profiler = torch.profiler.profile(
@@ -213,16 +209,16 @@ def train(dataset:Dataset):
         if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
             model.eval()
             val_loader.reset()
-            losses = estimate_loss(model,tr_config,dataset,train_loader,val_loader)
+            val_loss_accum = estimate_loss(model,tr_config,val_loader)
             wandb.log({
                 "iter": iter_num,
-                "val/loss": losses['val'],
+                "val/loss": val_loss_accum,
                 "lr": lr,
                 "time": time.time() - time_0,
             })
-            print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}, time (s): {time.time()-time_0:3f}" )
-            if losses['val'] < best_val_loss or tr_config.always_save_checkpoint:
-                best_val_loss = losses['val']
+            print(f"step {iter_num}: val loss {val_loss_accum:.4f}, time (s): {time.time()-time_0:3f}" )
+            if val_loss_accum < best_val_loss or tr_config.always_save_checkpoint:
+                best_val_loss = val_loss_accum
                 if iter_num > 0:
                     # TODO: Type this
                     checkpoint = {
@@ -276,6 +272,7 @@ def train(dataset:Dataset):
             break
         if tr_config.profile and iter_num % 10 == 0:
             assert profiler
+            assert profile_dir
             profiler.stop()
             profiler.export_chrome_trace(profile_dir)
             break
