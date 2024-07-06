@@ -379,9 +379,11 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # print(self.alibi_mask[:, :, :T, :T].shape)
         # print(self.alibi_mask[:, :, :T, :T].unsqueeze(0).shape)
         alibi_mask_sliced = self.alibi_mask[:, :, :, :T, :T]
+        # If your mask shape is (16, 1, 16, 1024, 1024)
+        alibi_mask_sliced = alibi_mask_sliced.unsqueeze(0).unsqueeze(3)
         alibi_mask_expanded = alibi_mask_sliced.expand(
-            B, *alibi_mask_sliced.shape[1:]
-        )
+            B, -1, -1, self.n_head, -1, -1
+        ).flatten(3, 4)
         output = torch.nn.functional.scaled_dot_product_attention(
             q,
             k,
