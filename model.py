@@ -1,3 +1,4 @@
+import math
 from typing import List, Literal
 import torch
 import torch.nn as nn
@@ -278,6 +279,7 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
 
     def __init__(self, config: ModelConfig):
         super().__init__()
+        self.max_seq_len = config.max_seq_len
         self.n_head = config.n_head
         self.n_kv_head = config.n_kv_heads
         self.head_dim = config.n_embd // config.n_head
@@ -301,15 +303,63 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # Alibi
         self.register_buffer(
             "alibi_mask",
-            self.gen_alibi_mask(config.max_seq_len, config.n_head),
+            self.gen_alibi_mask(
+                config.max_seq_len, self.n_head, device=config.device
+            ),
         )
 
-    def gen_alibi_mask(self, seq_length, num_heads):
-        distances = torch.arange(seq_length).view(-1, 1) - torch.arange(
-            seq_length
-        ).view(1, -1)
-        slopes = torch.arange(1, num_heads + 1).float().view(num_heads, 1, 1)
-        return torch.tril(distances * slopes)
+    def gen_alibi_mask(self, seq_len, n_head, device):
+        """
+        1. Generate mask:
+        [0, -1, -2, -3, -4, -5, -6]
+        [-1, 0, -1, -2, -3, -4, -5]
+        [-2, -1, 0, -1, -2, -3, -4]
+        [-3, -2, -1, 0, -1, -2, -3]
+        [-4, -3, -2, -1, 0, -1, -2]
+        [-5, -4, -3, -2, -1, 0, -1]
+        [-6, -5, -4, -3, -2, -1, 0]
+
+        2. Apply the slopes to the mask.
+        3. Tril the mask to get the lower triangular part (decoder only attention head)
+        """
+        alibi_mask = torch.arange(
+            seq_len, dtype=torch.float, device=device
+        ).unsqueeze(0) - torch.arange(
+            seq_len, dtype=torch.float, device=device
+        ).unsqueeze(
+            1
+        )
+        alibi_mask = alibi_mask.unsqueeze(0).expand(16, -1, -1)
+
+        slopes = (
+            torch.tensor(
+                self.get_slopes_power_of_2(seq_len, n_head),
+                dtype=torch.float,
+                device=device,
+            )
+            .unsqueeze(1)
+            .unsqueeze(2)
+        )
+        alibi_mask = torch.tril(alibi_mask * slopes)
+
+        return alibi_mask
+
+    def get_slopes_power_of_2(self, seq_len, n_head):
+        """
+        Generate slopes based on the number of heads.
+        Following the paper:
+        8 heads  --> 1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256
+        16 heads --> 1/(2^0.5), 1/2, 1/(2^1.5), 1/4, 1/(2^2.5), 1/8, 1/(2^3.5)... 1/256
+        """
+        assert n_head % 2 == 0
+        start = 2 ** (-(2 ** -(math.log2(n_head) - 3)))
+        ratio = start
+        s = [start * ratio**i for i in range(n_head)]
+        slopes = torch.Tensor(s)
+        slopes = slopes.unsqueeze(1).unsqueeze(1) * torch.arange(
+            seq_len
+        ).unsqueeze(0).unsqueeze(0).expand(n_head, -1, -1).view(n_head, 1, 10)
+        return slopes
 
     def forward(self, x: torch.Tensor):
         B, T, C = x.shape
