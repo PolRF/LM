@@ -329,7 +329,7 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         ).unsqueeze(
             1
         )
-        alibi_mask = alibi_mask.unsqueeze(0).expand(16, -1, -1)
+        alibi_mask = alibi_mask.unsqueeze(0).expand(n_head, -1, -1)
 
         slopes = (
             torch.tensor(
@@ -358,7 +358,9 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         slopes = torch.Tensor(s)
         slopes = slopes.unsqueeze(1).unsqueeze(1) * torch.arange(
             seq_len
-        ).unsqueeze(0).unsqueeze(0).expand(n_head, -1, -1).view(n_head, 1, 10)
+        ).unsqueeze(0).unsqueeze(0).expand(n_head, -1, -1).view(
+            n_head, 1, seq_len
+        )
         return slopes
 
     def forward(self, x: torch.Tensor):
