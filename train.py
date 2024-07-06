@@ -20,7 +20,6 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import torch.nn as nn
 
 from training.data_loader import FineWebEduDataLoader
-from validators import validate
 
 import wandb
 
