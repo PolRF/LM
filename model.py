@@ -375,7 +375,7 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # Repeat the keys and values to match query heads
         k = k.repeat(1, self.q_kv_proportion, 1, 1)
         v = v.repeat(1, self.q_kv_proportion, 1, 1)
-
+        print(self.alibi_mask.shape)
         output = torch.nn.functional.scaled_dot_product_attention(
             q,
             k,
