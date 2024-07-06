@@ -386,6 +386,7 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
             is_causal=True,
         )
         print(output.shape)
+        raise
         output = output.transpose(1, 2).contiguous().view(B, T, C)
         output = self.projection_dropout(self.linear_projection(output))
         return output
