@@ -380,7 +380,9 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
             q,
             k,
             v,
-            self.alibi_mask[:T, :T].to(x.device),
+            self.alibi_mask[:, :seq_len, :seq_len]
+            .unsqueeze(0)
+            .expand(batch_size, -1, -1, -1),
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=True,
         )
