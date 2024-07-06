@@ -9,7 +9,10 @@ import tiktoken
 import torch
 import inspect
 
-from training.model_loader import from_pretrained_rope_gpt2, resume_from_checkpoints 
+from training.model_loader import (
+    from_pretrained_rope_gpt2,
+    resume_from_checkpoints,
+)
 from model import ModelConfig, GPTLM
 import numpy as np
 import os
@@ -17,24 +20,25 @@ from torch.utils.tensorboard.writer import SummaryWriter
 import torch.nn as nn
 
 from training.data_loader import FineWebEduDataLoader
-# Tensorboard logs writers
-writer = SummaryWriter("runs/gqa")
+from validators import validate
+
 import wandb
 
-BASE_DATA_PATH = './data/'
-BASE_CHECKPOINT_PATH = './checkpoints_with_training_gqa/'
-BASE_PROFILER_PATH = './profiler/'
+BASE_DATA_PATH = "./data/"
+BASE_CHECKPOINT_PATH = "./checkpoints_with_training_gqa/"
+BASE_PROFILER_PATH = "./profiler/"
+
+
 @dataclass
 class TrainConfig:
-    model: Literal["RoPeGPT2","GQAGPT2"]
-    batch_size: int # if gradient_accumulation_steps is >1, then this is the mini-batch size
+    batch_size: int  # if gradient_accumulation_steps is >1, then this is the mini-batch size
     block_size: int
     eval_iters: int
     init_lr: float
     lr: float
     min_lr: float
-    lr_decay_iters:int
-    warmup_iters:int
+    lr_decay_iters: int
+    warmup_iters: int
     weight_decay: float
     device: torch.device
     # dtype: str
@@ -43,110 +47,330 @@ class TrainConfig:
     always_save_checkpoint: bool = False
     compile: bool = False
     grad_clip: float = 1.0
-    loading_mode: Literal["from_scratch","from_pretrained","resume_from_checkpoint"] = "from_scratch"
+    loading_mode: Literal[
+        "from_scratch", "from_pretrained", "resume_from_checkpoint"
+    ] = "from_scratch"
     profile: bool = False
 
+    # logging
+    wandb_project: str = "gpt2"
+    wandb_name: str = "gpt2-gqa-0.5M"
 
 
 class Dataset(Enum):
-    FINEWEB_EDU = 'fineweb_edu'
+    FINEWEB_EDU = "fineweb_edu"
 
 
+class TrainGPTM:
+    def __init__(self, tr_config: TrainConfig, model_config: ModelConfig):
+        self.tr_config = tr_config
+        # Initial cuda config
+        torch.manual_seed(1337)
+        torch.set_float32_matmul_precision("high")
 
-@torch.no_grad()
-def estimate_loss(model, config: TrainConfig,validation_loader ):
-    val_loss_accum = 0.0
-    val_loss_steps = 20
-    for _ in range(val_loss_steps):
-        x, y = validation_loader.next_batch()
-        x, y = x.to(config.device), y.to(config.device)
-        with torch.autocast(device_type=config.device, dtype=torch.bfloat16):
-            logits, loss = model(x, y)
-        loss = loss / val_loss_steps
-        val_loss_accum += loss.detach()
-    return val_loss_accum.item()  # type: ignore
+        # Initial vars
+        self.max_iters = 100_000
+        self.eval_interval = 500
+        self.iter_num = 0
+        self.best_val_loss = 1e9
+        self.checkpoint = None
+        self.lr = None
+        self.loss_accum = 0.0
+        self.time_0 = 0.0
 
-# learning rate decay scheduler (cosine with warmup)
-def get_lr(config: TrainConfig,iteration):
-    # 1) linear warmup for warmup_iters steps
-    if iteration < config.warmup_iters:
-        return config.lr * iteration / config.warmup_iters
-    # 2) if it > lr_decay_iters, return min learning rate
-    if iteration > config.lr_decay_iters:
-        return config.min_lr
-    # 3) in between, use cosine decay down to min learning rate
-    decay_ratio = (iteration - config.warmup_iters) / (config.lr_decay_iters - config.warmup_iters)
-    assert 0 <= decay_ratio <= 1
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio)) # coeff ranges 0..1
-    return config.min_lr + coeff * (config.lr - config.min_lr)
+        # Checkpoints
+        if tr_config.checkpoint_output_dir and not os.path.exists(
+            tr_config.checkpoint_output_dir
+        ):
+            print(f"Creating directory: {tr_config.checkpoint_output_dir}")
+            os.makedirs(tr_config.checkpoint_output_dir)
 
-def configure_optimizers(model: nn.Module,weight_decay, learning_rate, betas, device_type):
-    # start with all of the candidate parameters
-    param_dict = {pn: p for pn, p in model.named_parameters()}
-    # filter out those that do not require grad
-    param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
-    # create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.
-    # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
-    decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
-    nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
-    optim_groups = [
-        {'params': decay_params, 'weight_decay': weight_decay},
-        {'params': nodecay_params, 'weight_decay': 0.0}
-    ]
-    num_decay_params = sum(p.numel() for p in decay_params)
-    num_nodecay_params = sum(p.numel() for p in nodecay_params)
-    print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
-    print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
-    # Create AdamW optimizer and use the fused version if it is available
-    fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
-    use_fused = fused_available and device_type == 'cuda'
+        # Maybe we can remove this outside of the class and pass it as a parameter
+        self.model = GPTLM(model_config)
+        if tr_config.loading_mode == "from_scratch":
+            self.model, self.model_config = from_pretrained_rope_gpt2(
+                tr_config.device
+            )
+        elif tr_config.loading_mode == "resume_from_checkpoint":
+            self.model, self.iter_num, self.best_val_loss = (
+                resume_from_checkpoints(tr_config, model_config)
+            )
 
-    optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas,fused=use_fused)
-    print(f"using fused AdamW: {use_fused}")
+        self.model.to(tr_config.device)
+        if tr_config.compile:
+            self.model: torch.nn.Module = torch.compile(self.model)  # type: ignore
+        print(
+            sum(p.numel() for p in self.model.parameters()) / 1e6,
+            "M parameters",
+        )
 
-    return optimizer
+        # optimizer
+        self.betas = (0.9, 0.95)
+        self.optimizer = self._configure_optimizer()
+
+        # Logging
+        wandb.init(
+            project=tr_config.wandb_project,
+            name=tr_config.wandb_name,
+            config=tr_config.__dict__,
+        )
+        wandb.watch(self.model)
+        if tr_config.profile:
+            self._init_profiler()
+
+        # Data loader
+        self.train_loader = FineWebEduDataLoader(
+            B=tr_config.batch_size,
+            T=tr_config.block_size,
+            process_rank=0,
+            num_processes=1,
+            split="train",
+        )
+        self.val_loader = FineWebEduDataLoader(
+            B=tr_config.batch_size,
+            T=tr_config.block_size,
+            process_rank=0,
+            num_processes=1,
+            split="val",
+        )
+
+    def _init_profiler(self):
+        self.profile_dir = os.path.join(
+            BASE_PROFILER_PATH,
+            self.tr_config.wandb_project,
+            self.tr_config.wandb_name,
+        )
+        self.profiler = torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            schedule=torch.profiler.schedule(
+                wait=1, warmup=1, active=3, repeat=2
+            ),
+            record_shapes=False,
+            with_stack=True,
+            with_flops=False,
+        )
+        self.profiler.start()
+
+    def _configure_optimizer(self):
+        # start with all of the candidate parameters
+        param_dict = {pn: p for pn, p in self.model.named_parameters()}
+        # filter out those that do not require grad
+        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+        # create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.
+        # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
+        decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
+        nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+        optim_groups = [
+            {
+                "params": decay_params,
+                "weight_decay": self.tr_config.weight_decay,
+            },
+            {"params": nodecay_params, "weight_decay": 0.0},
+        ]
+        num_decay_params = sum(p.numel() for p in decay_params)
+        num_nodecay_params = sum(p.numel() for p in nodecay_params)
+        print(
+            f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
+        )
+        print(
+            f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"
+        )
+        # Create AdamW optimizer and use the fused version if it is available
+        fused_available = (
+            "fused" in inspect.signature(torch.optim.AdamW).parameters
+        )
+        use_fused = fused_available and self.tr_config.device.type == "cuda"
+
+        optimizer = torch.optim.AdamW(
+            optim_groups,
+            lr=self.tr_config.lr,
+            betas=self.betas,
+            fused=use_fused,
+        )
+        print(f"using fused AdamW: {use_fused}")
+
+        return optimizer
+
+    def _get_current_lr(self):
+        """
+        Get the current learning following the learning rate scheduler.
+        The learning rate scheduler is a cosine with warmup.
+        """
+        # 1) linear warmup for warmup_iters steps
+        if self.iter_num < self.tr_config.warmup_iters:
+            return (
+                self.tr_config.lr * self.iter_num / self.tr_config.warmup_iters
+            )
+        # 2) if it > lr_decay_iters, return min learning rate
+        if self.iter_num > self.tr_config.lr_decay_iters:
+            return self.tr_config.min_lr
+        # 3) in between, use cosine decay down to min learning rate
+        decay_ratio = (self.iter_num - self.tr_config.warmup_iters) / (
+            self.tr_config.lr_decay_iters - self.tr_config.warmup_iters
+        )
+        assert 0 <= decay_ratio <= 1
+        coeff = 0.5 * (
+            1.0 + math.cos(math.pi * decay_ratio)
+        )  # coeff ranges 0..1
+        return self.tr_config.min_lr + coeff * (
+            self.tr_config.lr - self.tr_config.min_lr
+        )
+
+    @torch.no_grad()
+    def _estimate_loss(self):
+        val_loss_accum = 0.0
+        val_loss_steps = 20
+        for _ in range(val_loss_steps):
+            x, y = self.val_loader.next_batch()
+            x, y = x.to(self.tr_config.device), y.to(self.tr_config.device)
+            with torch.autocast(
+                device_type=self.tr_config.device.__str__(),
+                dtype=torch.bfloat16,
+            ):
+                logits, loss = self.model(x, y)
+            loss = loss / val_loss_steps
+            val_loss_accum += loss.detach()
+        return val_loss_accum.item()  # type: ignore
+
+    def _validate_and_save_checkpoint(self):
+        self.val_loader.reset()
+        val_loss_accum = self._estimate_loss()
+        wandb.log(
+            {
+                "iter": self.iter_num,
+                "val/loss": val_loss_accum,
+                "lr": self.lr,
+                "time": time.time() - self.time_0,
+            }
+        )
+        print(
+            f"step {self.iter_num}: val loss {val_loss_accum:.4f}, time (s): {time.time()-self.time_0:3f}"
+        )
+        if (
+            val_loss_accum < self.best_val_loss
+            or self.tr_config.always_save_checkpoint
+        ):
+            self.best_val_loss = val_loss_accum
+            if self.iter_num > 0:
+                # TODO: Type this
+                checkpoint = {
+                    "model": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "model_args": self.model_config,
+                    "iter_num": self.iter_num,
+                    "best_val_loss": self.best_val_loss,
+                    "training_config": self.tr_config,
+                }
+                print(
+                    f"saving checkpoint to {self.tr_config.checkpoint_output_dir}"
+                )
+                torch.save(
+                    checkpoint,
+                    os.path.join(
+                        self.tr_config.checkpoint_output_dir, "ckpt.pt"
+                    ),
+                )
+
+    def _microstep_training(self):
+        self.loss_accum = 0.0
+        for _ in range(self.tr_config.gradient_accumulation_steps):
+            x, y = self.train_loader.next_batch()
+            x, y = x.to(self.tr_config.device), y.to(self.tr_config.device)
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                logits, loss = self.model(x, y)
+
+            loss = loss / self.tr_config.gradient_accumulation_steps
+            self.loss_accum += loss.detach()
+            # There is no need of using scaler is we are not using float16
+            loss.backward()
+
+    def _log_iteration(self):
+        time_elapsed = time.time() - self.time_0
+        tokens_processed = (
+            self.tr_config.batch_size
+            * self.tr_config.block_size
+            * self.tr_config.gradient_accumulation_steps
+        )
+        tokens_per_sec = tokens_processed / time_elapsed
+        wandb.log(
+            {
+                "iter": self.iter_num,
+                "train/loss": self.loss_accum.item(),
+                "lr": self.lr,
+                "time": time_elapsed,
+                "tokens_per_sec": tokens_per_sec,
+            }
+        )
+        print(
+            f"step {self.iter_num}: train loss {self.loss_accum.item():.4f}, time (s): {time_elapsed:.4f}, lr: {self.lr:.7f}, tok/sec: {tokens_per_sec:.2f}"
+        )
+
+    def train(self):
+        for i in range(self.max_iters):
+            self.iter_num = i
+            if self.tr_config.profile:
+                assert self.profiler
+                self.profiler.step()
+            self.time_0 = time.time()
+            self.lr = self._get_current_lr()
+            for param_group in self.optimizer.param_groups:
+                param_group["lr"] = self.lr
+            # every once in a while evaluate the loss on train and val sets
+            if (
+                self.iter_num % self.eval_interval == 0
+                or self.iter_num == self.max_iters - 1
+            ):
+                self.model.eval()
+
+            self.model.train()
+            # TODO: compare optimizer.zero_grad(set_to_none=True) vs.
+            # for param in model.parameters():
+            #     param.grad = None
+            self.optimizer.zero_grad(set_to_none=True)
+            self._microstep_training()
+            # This is done in case there is a bad batch that causes the gradients to explode.
+            norm = torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), self.tr_config.grad_clip
+            )
+            self.optimizer.step()
+            # Wait for the GPU to finish
+            torch.cuda.synchronize()
+            self._log_iteration()
+
+            if self.tr_config.profile and self.iter_num % 10 == 0:
+                assert self.profiler
+                assert self.profile_dir
+                self.profiler.stop()
+                self.profiler.export_chrome_trace(self.profile_dir)
+                break
 
 
-def trace_handler(p):
-    output = p.key_averages().table(sort_by="self_cuda_time_total", row_limit=10)
-    print(output)
-    p.export_chrome_trace("/tmp/trace_" + str(p.step_num) + ".json")
-
-
-def train(dataset:Dataset):
-    
+if __name__ == "__main__":
+    os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     tr_config = TrainConfig(
-        model="RoPeGPT2",
         batch_size=16,
         block_size=1024,
         eval_iters=200,
-        init_lr = 6e-4, # for lr decay (TODO need a lower lr????)
-        lr = 6e-4,
+        init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
+        lr=6e-4,
         min_lr=6e-5,
         warmup_iters=10_000,
         lr_decay_iters=100_000,
         weight_decay=1e-1,
-        device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
         gradient_accumulation_steps=32,
-        loading_mode = "from_scratch",
+        loading_mode="from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
         compile=True,
         grad_clip=1.0,
-        profile=True
+        profile=True,
     )
-    torch.manual_seed(1337)
-    torch.set_float32_matmul_precision('high')
-
-
-    if tr_config.checkpoint_output_dir and not os.path.exists(tr_config.checkpoint_output_dir):
-        print(f"Creating directory: {tr_config.checkpoint_output_dir}")
-        os.makedirs(tr_config.checkpoint_output_dir)
-    # Override device for Macbook pro m2 chip
-    # tr_config.device=torch.device("mps")
-    max_iters = 100_000
-    eval_interval = 500
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=1024,
@@ -155,144 +379,4 @@ def train(dataset:Dataset):
         n_head=16,
         n_kv_heads=4,
     )
-
-    # Iterator only
-    iter_num = 0
-    best_val_loss = 1e9
-    model = GPTLM(model_config)
-    if tr_config.loading_mode == "from_pretrained":
-        model, model_config = from_pretrained_rope_gpt2(tr_config.device)
-    elif tr_config.loading_mode == "resume_from_checkpoint":
-        model, iter_num, best_val_loss = resume_from_checkpoints(tr_config,model_config)
-    
-    
-    checkpoint=None
-    assert model
-    print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
-    model.to(tr_config.device)
-    if tr_config.compile:
-        model = torch.compile(model)
-    optimizer = configure_optimizers(model, tr_config.weight_decay, tr_config.lr, (0.9, 0.95), 'cuda') 
-    print(f"We are using device: {tr_config.device}")
-    wandb_project = "gpt2"
-    wandb_name = "gpt2-gqa-0.5M-"
-    wandb.init(project=wandb_project, name=wandb_name, config=tr_config.__dict__)
-    wandb.watch(model)
-    profiler=None
-    profile_dir=None
-    if tr_config.profile:
-        profile_dir = os.path.join(BASE_PROFILER_PATH, wandb_project, wandb_name)
-        profiler = torch.profiler.profile(
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA],
-            schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
-            # on_trace_ready=torch.profiler.tensorboard_trace_handler(profile_dir),
-            record_shapes=False,
-            with_stack=True,
-            with_flops=False,
-        )
-        profiler.start()
-
-    # Init the first batch
-    train_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="train")
-    val_loader = FineWebEduDataLoader(B=tr_config.batch_size, T=tr_config.block_size, process_rank=0, num_processes=1, split="val")
-    while True:
-        if tr_config.profile:
-            assert profiler
-            profiler.step()
-        time_0 = time.time()
-        lr = get_lr(tr_config, iter_num)
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-        # every once in a while evaluate the loss on train and val sets
-        if iter_num % eval_interval == 0 or iter_num == max_iters - 1:
-            model.eval()
-            val_loader.reset()
-            val_loss_accum = estimate_loss(model,tr_config,val_loader)
-            wandb.log({
-                "iter": iter_num,
-                "val/loss": val_loss_accum,
-                "lr": lr,
-                "time": time.time() - time_0,
-            })
-            print(f"step {iter_num}: val loss {val_loss_accum:.4f}, time (s): {time.time()-time_0:3f}" )
-            if val_loss_accum < best_val_loss or tr_config.always_save_checkpoint:
-                best_val_loss = val_loss_accum
-                if iter_num > 0:
-                    # TODO: Type this
-                    checkpoint = {
-                        'model': model.state_dict(),
-                        'optimizer': optimizer.state_dict(),
-                        'model_args': model_config,
-                        'iter_num': iter_num,
-                        'best_val_loss': best_val_loss,
-                        'training_config': tr_config,
-                    }
-                    print(f"saving checkpoint to {tr_config.checkpoint_output_dir}")
-                    torch.save(checkpoint, os.path.join(tr_config.checkpoint_output_dir, 'ckpt.pt'))
-        model.train()
-
-        #TODO: compare optimizer.zero_grad(set_to_none=True) vs.
-        # for param in model.parameters():
-        #     param.grad = None
-        optimizer.zero_grad(set_to_none=True)
-
-        loss_accum = 0.0
-        for micro_step in range(tr_config.gradient_accumulation_steps):
-            x, y = train_loader.next_batch()
-            x, y = x.to(tr_config.device), y.to(tr_config.device)
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                logits, loss = model(x, y)
-            
-            loss = loss / tr_config.gradient_accumulation_steps
-            loss_accum += loss.detach()
-            # There is no need of using scaler is we are not using float16
-            loss.backward()
-
-        # This is done in case there is a bad batch that causes the gradients to explode.
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), tr_config.grad_clip)
-        optimizer.step()
-        # Wait for the GPU to finish
-        torch.cuda.synchronize()
-        time_elapsed = time.time() - time_0
-        tokens_processed = tr_config.batch_size * tr_config.block_size * tr_config.gradient_accumulation_steps
-        tokens_per_sec = tokens_processed / time_elapsed
-        wandb.log({
-                "iter": iter_num,
-                "train/loss": loss_accum.item(),
-                "lr": lr,
-                "time": time_elapsed,
-                "tokens_per_sec": tokens_per_sec,
-            })
-        print(f"step {iter_num}: train loss {loss_accum.item():.4f}, time (s): {time_elapsed:.4f}, lr: {lr:.7f}, tok/sec: {tokens_per_sec:.2f}")
-
-        iter_num += 1
-        if iter_num >= max_iters:
-            break
-        if tr_config.profile and iter_num % 10 == 0:
-            assert profiler
-            assert profile_dir
-            profiler.stop()
-            profiler.export_chrome_trace(profile_dir)
-            break
-    writer.close()
-
-def test_generation():
-    model, _ = from_pretrained_rope_gpt2(torch.device("cuda"))
-    model = model.to("cuda")
-    model.eval()
-    print("Model loaded")
-    enc = tiktoken.get_encoding("gpt2")
-    context = "The quick brown fox jumps over the lazy dog"
-    context = enc.encode_ordinary(context)
-    context = torch.tensor(context, dtype=torch.long).unsqueeze(0)
-    context = context.to("cuda")
-    out = model.generate(context, 100)
-    print(enc.decode(out[0].cpu().numpy()))
-
-if __name__ == '__main__':
-    os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
-    os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
-    # train(Dataset.FINEWEB_EDU)
-    # test_generation()
+    TrainGPTM(tr_config, model_config).train()

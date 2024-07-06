@@ -34,15 +34,15 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Scale the model to visualize better the improvements
 - [x] Implement Grouped Query Attention (GQA)
 - [x] Check training with autocast disabled for apply_rope
-- [ ] Implement "model surgery to decrease the block size"
 - [ ] Implement KV-cache
+- [ ] Implement "model surgery to decrease the block size"
 - [ ] Implement Mixture of Experts (Mixtral)
-- [ ] Sliding Window Attention (SWA)
 - [ ] Mistral 7B
 - [ ] Mixtral 8x7B
 - [ ] Llama 2 8B
 - [ ] Mamba
 - [ ] Jamba
+- [ ] Implement SAMBA
 - [ ] Implement the Transformer-XL
 - [ ] Implement linear transformer
 - [ ] Implement Infinite attention (https://arxiv.org/pdf/2404.07143.pdf)
@@ -53,8 +53,8 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] CLLMs (multi token prediction)
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
-- [ ] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
-- [ ] Implement SAMBA
+- [ ] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf) # already read it, it's just adding a mask to the attention mechanism
+- [ ] Implement LongRope (https://arxiv.org/pdf/2402.13753)
 
 ### Fine-tuning improvements:
 
@@ -80,6 +80,8 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Use Fineweb dataset instead of Openwebtext
 - [x] Implement some optimizations to speed up training
 - [x] Add pytorch profiler
+- [ ] Implement changing batch size during training
+- [ ] Implement changing batch size during validation
 - [ ] Check param initialization
 - [ ] Implement some validations --> Hellaswag
 - [ ] Re-read GPT-3 paper to improve the training of the model (https://arxiv.org/abs/2005.14165)
@@ -102,4 +104,4 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement training time metrics
 
 ### Code improvements:
-- [ ] Clean the training code
+- [x] Clean the training code

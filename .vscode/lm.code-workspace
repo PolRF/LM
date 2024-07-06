@@ -36,9 +36,7 @@
       "--line-length",
       "79",
       "--target-version",
-      "py311",
-      "--required-version",
-      "24.2.0"
+      "py311"
     ],
     "pylint.args": ["--disable=E0401,C0114,C0115,C0116"],
     "editor.rulers": [79],
