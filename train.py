@@ -369,7 +369,8 @@ if __name__ == "__main__":
         always_save_checkpoint=False,
         compile=True,
         grad_clip=1.0,
-        profile=True,
+        profile=False,
+        wandb_name="gpt2-gqa-alibi",
     )
     model_config = ModelConfig(
         vocab_size=50304,
@@ -378,5 +379,6 @@ if __name__ == "__main__":
         dropout=0.1,
         n_head=16,
         n_kv_heads=4,
+        pos_emb="alibi",
     )
     TrainGPTM(tr_config, model_config).train()

@@ -34,6 +34,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Scale the model to visualize better the improvements
 - [x] Implement Grouped Query Attention (GQA)
 - [x] Check training with autocast disabled for apply_rope
+- [x] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
 - [ ] Implement KV-cache
 - [ ] Implement "model surgery to decrease the block size"
 - [ ] Implement Mixture of Experts (Mixtral)
@@ -53,7 +54,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] CLLMs (multi token prediction)
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
-- [ ] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf) # already read it, it's just adding a mask to the attention mechanism
 - [ ] Implement LongRope (https://arxiv.org/pdf/2402.13753)
 
 ### Fine-tuning improvements:
