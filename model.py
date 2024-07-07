@@ -384,10 +384,12 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
             q,
             k,
             v,
-            self.alibi_mask.view(32, 8, 1024, 1024),
+            None,  # self.alibi_mask.view(32, 8, 1024, 1024),
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=True,
         )
+        print(output.shape)
+        raise
         output = output.transpose(1, 2).contiguous().view(B, T, C)
         output = self.projection_dropout(self.linear_projection(output))
         return output
