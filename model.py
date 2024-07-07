@@ -383,7 +383,9 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
             q,
             k,
             v,
-            self.alibi_mask.view(self.n_head, self.n_head, T, T),
+            self.alibi_mask.view(self.n_head, self.n_head, T, T).transpose(
+                2, 3
+            ),
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=True,
         )
