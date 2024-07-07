@@ -86,6 +86,7 @@ class TrainGPTM:
 
         # Maybe we can remove this outside of the class and pass it as a parameter
         self.model = GPTLM(model_config)
+        self.model_config = model_config
         if tr_config.loading_mode == "from_pretrained":
             self.model, self.model_config = from_pretrained_rope_gpt2(
                 tr_config.device
