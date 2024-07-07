@@ -299,14 +299,25 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
         self.dropout = config.dropout
-
         # Alibi
         self.register_buffer(
             "alibi_mask",
-            self.gen_alibi_mask(
+            torch.tril(self.gen_alibi_mask(
                 config.max_seq_len, self.n_head, device=config.device
-            ),
+            ))
         )
+    def get_slopes_power_of_2(self, n_head):
+        """
+        Generate slopes based on the number of heads.
+        Following the paper:
+        8 heads  --> 1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256
+        16 heads --> 1/(2^0.5), 1/2, 1/(2^1.5), 1/4, 1/(2^2.5), 1/8, 1/(2^3.5)... 1/256
+        """
+        assert n_head % 2 == 0
+        start = 2 ** (-(2 ** -(math.log2(n_head) - 3)))
+        ratio = start
+        slopes = [start * ratio**i for i in range(n_head)]
+        return slopes
 
     def gen_alibi_mask(self, seq_len, n_head, device):
         """
@@ -320,48 +331,16 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         [-6, -5, -4, -3, -2, -1, 0]
 
         2. Apply the slopes to the mask.
-        3. Tril the mask to get the lower triangular part (decoder only attention head)
         """
-        alibi_mask = torch.arange(
-            seq_len, dtype=torch.float, device=device
-        ).unsqueeze(0) - torch.arange(
-            seq_len, dtype=torch.float, device=device
-        ).unsqueeze(
-            1
-        )
-        alibi_mask = alibi_mask.unsqueeze(0).expand(n_head, -1, -1)
+        # Generate the initial ALiBi mask with shape (seq_len, seq_len)
+        alibi_mask = (torch.arange(seq_len, device=device, dtype=torch.float).unsqueeze(0) 
+                      - torch.arange(seq_len, device=device,dtype=torch.float).unsqueeze(1))
 
-        slopes = (
-            torch.tensor(
-                self.get_slopes_power_of_2(seq_len, n_head),
-                dtype=torch.float,
-                device=device,
-            )
-            .unsqueeze(1)
-            .unsqueeze(2)
-        )
-        alibi_mask = torch.tril(alibi_mask * slopes)
+        # Get slopes and scale the mask for each head
+        slopes = torch.tensor(self.get_slopes_power_of_2(n_head), dtype=torch.float, device=device)
+        alibi_mask = alibi_mask.unsqueeze(0) * slopes.view(n_head, 1, 1)
 
         return alibi_mask
-
-    def get_slopes_power_of_2(self, seq_len, n_head):
-        """
-        Generate slopes based on the number of heads.
-        Following the paper:
-        8 heads  --> 1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256
-        16 heads --> 1/(2^0.5), 1/2, 1/(2^1.5), 1/4, 1/(2^2.5), 1/8, 1/(2^3.5)... 1/256
-        """
-        assert n_head % 2 == 0
-        start = 2 ** (-(2 ** -(math.log2(n_head) - 3)))
-        ratio = start
-        s = [start * ratio**i for i in range(n_head)]
-        slopes = torch.Tensor(s)
-        slopes = slopes.unsqueeze(1).unsqueeze(1) * torch.arange(
-            seq_len
-        ).unsqueeze(0).unsqueeze(0).expand(n_head, -1, -1).view(
-            n_head, 1, seq_len
-        )
-        return slopes
 
     def forward(self, x: torch.Tensor):
         B, T, C = x.shape
@@ -375,19 +354,13 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # Repeat the keys and values to match query heads
         k = k.repeat(1, self.q_kv_proportion, 1, 1)
         v = v.repeat(1, self.q_kv_proportion, 1, 1)
-        print(q.shape)
-        print(k.shape)
-        print(self.alibi_mask.shape)
-        print(B, T, C)
         output = torch.nn.functional.scaled_dot_product_attention(
             q,
             k,
             v,
-            self.alibi_mask.view(self.n_head, self.n_head, T, T).transpose(
-                2, 3
-            ),
+            self.alibi_mask[:,:T,:T],
             dropout_p=self.dropout if self.training else 0.0,
-            is_causal=True,
+            is_causal=False,
         )
         output = output.transpose(1, 2).contiguous().view(B, T, C)
         output = self.projection_dropout(self.linear_projection(output))
