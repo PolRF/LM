@@ -378,13 +378,12 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         print(q.shape)
         print(k.shape)
         print(self.alibi_mask.shape)
-        print(self.alibi_mask.unsqueeze(0).shape)
         print(B, T, C)
         output = torch.nn.functional.scaled_dot_product_attention(
             q,
             k,
             v,
-            self.alibi_mask.view(B, self.n_head, T, C // self.n_head),
+            self.alibi_mask.view(self.n_head, self.n_head, T, T),
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=True,
         )
