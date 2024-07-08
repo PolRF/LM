@@ -23,6 +23,7 @@ class ModelConfig:
     )
     pos_emb: Literal["rope", "alibi"] = "rope"
     max_seq_len: int = 1024
+    max_batch_size: int = 32
 
 
 class GELU(nn.Module):
@@ -243,6 +244,22 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
         self.attn_dropout = nn.Dropout(config.dropout)
         self.dropout = config.dropout
 
+        # Cache
+        self.cache_k = torch.zeros(
+            config.max_batch_size,
+            config.max_seq_len,
+            config.n_kv_heads,
+            self.head_dim,
+            device=config.device,
+        )
+        self.cache_v = torch.zeros(
+            config.max_batch_size,
+            config.max_seq_len,
+            config.n_kv_heads,
+            self.head_dim,
+            device=config.device,
+        )
+
     def forward(self, x: torch.Tensor, rope_freqs: torch.Tensor):
         B, T, C = x.shape
         q = self.q(x)
@@ -299,13 +316,23 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
         self.dropout = config.dropout
+        print(
+            torch.tril(
+                self.gen_alibi_mask(
+                    config.max_seq_len, self.n_head, device=config.device
+                )
+            )
+        )
         # Alibi
         self.register_buffer(
             "alibi_mask",
-            torch.tril(self.gen_alibi_mask(
-                config.max_seq_len, self.n_head, device=config.device
-            ))
+            torch.tril(
+                self.gen_alibi_mask(
+                    config.max_seq_len, self.n_head, device=config.device
+                )
+            ),
         )
+
     def get_slopes_power_of_2(self, n_head):
         """
         Generate slopes based on the number of heads.
@@ -333,11 +360,20 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         2. Apply the slopes to the mask.
         """
         # Generate the initial ALiBi mask with shape (seq_len, seq_len)
-        alibi_mask = (torch.arange(seq_len, device=device, dtype=torch.float).unsqueeze(0) 
-                      - torch.arange(seq_len, device=device,dtype=torch.float).unsqueeze(1))
+        alibi_mask = torch.arange(
+            seq_len, device=device, dtype=torch.float
+        ).unsqueeze(0) - torch.arange(
+            seq_len, device=device, dtype=torch.float
+        ).unsqueeze(
+            1
+        )
 
         # Get slopes and scale the mask for each head
-        slopes = torch.tensor(self.get_slopes_power_of_2(n_head), dtype=torch.float, device=device)
+        slopes = torch.tensor(
+            self.get_slopes_power_of_2(n_head),
+            dtype=torch.float,
+            device=device,
+        )
         alibi_mask = alibi_mask.unsqueeze(0) * slopes.view(n_head, 1, 1)
 
         return alibi_mask
@@ -358,7 +394,7 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
             q,
             k,
             v,
-            self.alibi_mask[:,:T,:T],
+            self.alibi_mask[:, :T, :T],
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=False,
         )
