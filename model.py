@@ -321,7 +321,9 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
             config.max_seq_len, self.n_head, device=config.device
         )
         causal_mask = torch.tril(
-            torch.ones(self.max_seq_len, self.max_seq_len)
+            torch.ones(
+                self.max_seq_len, self.max_seq_len, device=config.device
+            )
         )
         causal_mask = causal_mask.view(1, self.max_seq_len, self.max_seq_len)
         alibi_bias = alibi.masked_fill(causal_mask == 0, float("-inf"))
