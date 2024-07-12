@@ -63,6 +63,7 @@ class Dataset(Enum):
 class TrainGPTM:
     def __init__(self, tr_config: TrainConfig, model_config: ModelConfig):
         self.tr_config = tr_config
+        self.model_config = model_config
         # Initial cuda config
         torch.manual_seed(1337)
         torch.set_float32_matmul_precision("high")
