@@ -391,7 +391,7 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
 
         # Apply the alibi mask with the scaling factor to match the scaling
         # of scaled dot product attention
-        alibi_bias = self.alibi_bias[:, :T, :T] * (self.head_dim**-0.5)
+        alibi_bias = self.alibi_mask[:, :T, :T] * (self.head_dim**-0.5)
 
         output = torch.nn.functional.scaled_dot_product_attention(
             q,
