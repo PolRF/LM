@@ -273,8 +273,8 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
             q, k = apply_rope(q, k, rope_freqs, x.device)
 
         # Repeat the keys and values to match query heads
-        k = k.repeat(1, self.q_kv_proportion, 1, 1)
-        v = v.repeat(1, self.q_kv_proportion, 1, 1)
+        k = k.repeat_interleave(self.q_kv_proportion, dim=1)
+        v = v.repeat_interleave(self.q_kv_proportion, dim=1)
 
         output = torch.nn.functional.scaled_dot_product_attention(
             q,
@@ -316,21 +316,18 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # Add dropouts
         self.attn_dropout = nn.Dropout(config.dropout)
         self.dropout = config.dropout
-        print(
-            torch.tril(
-                self.gen_alibi_mask(
-                    config.max_seq_len, self.n_head, device=config.device
-                )
-            )
-        )
         # Alibi
+        alibi = self.gen_alibi_mask(
+            config.max_seq_len, self.n_head, device=config.device
+        )
+        causal_mask = torch.tril(
+            torch.ones(self.max_seq_len, self.max_seq_len)
+        )
+        causal_mask = causal_mask.view(1, self.max_seq_len, self.max_seq_len)
+        alibi_bias = alibi.masked_fill(causal_mask == 0, float("-inf"))
         self.register_buffer(
             "alibi_mask",
-            torch.tril(
-                self.gen_alibi_mask(
-                    config.max_seq_len, self.n_head, device=config.device
-                )
-            ),
+            torch.tril(alibi_bias),
         )
 
     def get_slopes_power_of_2(self, n_head):
@@ -343,8 +340,7 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         assert n_head % 2 == 0
         start = 2 ** (-(2 ** -(math.log2(n_head) - 3)))
         ratio = start
-        slopes = [start * ratio**i for i in range(n_head)]
-        return slopes
+        return [start * ratio**i for i in range(n_head)]
 
     def gen_alibi_mask(self, seq_len, n_head, device):
         """
@@ -390,11 +386,16 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         # Repeat the keys and values to match query heads
         k = k.repeat(1, self.q_kv_proportion, 1, 1)
         v = v.repeat(1, self.q_kv_proportion, 1, 1)
+
+        # Apply the alibi mask with the scaling factor to match the scaling
+        # of scaled dot product attention
+        alibi_bias = self.alibi_bias[:, :T, :T] * (self.head_dim**-0.5)
+
         output = torch.nn.functional.scaled_dot_product_attention(
             q,
             k,
             v,
-            self.alibi_mask[:, :T, :T],
+            alibi_bias,
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=False,
         )

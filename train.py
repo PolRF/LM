@@ -348,20 +348,19 @@ class TrainGPTM:
                 self.profiler.export_chrome_trace(self.profile_dir)
                 break
 
-    def test_generation(self):
-        model, _, __ = resume_from_checkpoints(
-            self.tr_config, self.model_config
-        )
-        model = model.to("cuda")
-        model.eval()
-        print("Model loaded")
-        enc = tiktoken.get_encoding("gpt2")
-        context = "The quick brown fox jumps over the lazy dog"
-        context = enc.encode_ordinary(context)
-        context = torch.tensor(context, dtype=torch.long).unsqueeze(0)
-        context = context.to("cuda")
-        out = model.generate(context, 100)
-        print(enc.decode(out[0].cpu().numpy()))
+
+def test_generation(tr_config: TrainConfig, model_config: ModelConfig):
+    model, _, __ = resume_from_checkpoints(tr_config, model_config)
+    model = model.to("cuda")
+    model.eval()
+    print("Model loaded")
+    enc = tiktoken.get_encoding("gpt2")
+    context = "The quick brown fox jumps over the lazy dog"
+    context = enc.encode_ordinary(context)
+    context = torch.tensor(context, dtype=torch.long).unsqueeze(0)
+    context = context.to("cuda")
+    out = model.generate(context, 100)
+    print(enc.decode(out[0].cpu().numpy()))
 
 
 if __name__ == "__main__":
@@ -397,4 +396,5 @@ if __name__ == "__main__":
         n_kv_heads=4,
         pos_emb="alibi",
     )
-    TrainGPTM(tr_config, model_config).test_generation()  # .train()
+    TrainGPTM(tr_config, model_config).train()
+    # test_generation(tr_config, model_config)
