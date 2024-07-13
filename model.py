@@ -270,7 +270,7 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
         v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
 
         with torch.autocast(enabled=False, device_type=str("cuda")):
-            q, k = apply_rope(q, k, rope_freqs, x.device)
+            q, k = apply_rope(q, k, rope_freqs, str(x.device))
 
         # Repeat the keys and values to match query heads
         k = k.repeat_interleave(self.q_kv_proportion, dim=1)
