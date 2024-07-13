@@ -1,7 +1,5 @@
-from contextlib import nullcontext
 from dataclasses import dataclass
 from enum import Enum
-import glob
 import math
 import time
 from typing import Literal
@@ -14,10 +12,7 @@ from training.model_loader import (
     resume_from_checkpoints,
 )
 from model import ModelConfig, GPTLM
-import numpy as np
 import os
-from torch.utils.tensorboard.writer import SummaryWriter
-import torch.nn as nn
 
 from training.data_loader import FineWebEduDataLoader
 
@@ -386,7 +381,7 @@ if __name__ == "__main__":
         compile=True,
         grad_clip=1.0,
         profile=False,
-        wandb_name="gpt2-gqa-alibi",
+        wandb_name="gpt2-gqa-rope",
     )
     model_config = ModelConfig(
         vocab_size=50304,
@@ -395,7 +390,7 @@ if __name__ == "__main__":
         dropout=0.1,
         n_head=16,
         n_kv_heads=4,
-        pos_emb="alibi",
+        pos_emb="rope",
     )
     TrainGPTM(tr_config, model_config).train()
     # test_generation(tr_config, model_config)
