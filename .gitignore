@@ -6,3 +6,4 @@
 /runs
 /wandb
 /trace
+/profiler

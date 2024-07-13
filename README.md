@@ -2,17 +2,19 @@
 
 ## Project Overview
 
-This repository is mainly created for educational purposes (mainly my own), with an emphasis on the practical implementation of state-of-the-art (SOTA) language model papers, using the PyTorch library.
+This repository is mainly created for educational purposes (mainly my own), with an emphasis on the practical implementation of state-of-the-art (SOTA) language model papers, using the PyTorch library. The whole project is inspired by the NanoGPT project of Andrej Karpathy (https://github.com/karpathy/nanoGPT).
 
 The main goal of this project is to provide a comprehensive and detailed implementation of the most recent and popular language models, such as GPT-2, Llama 2, Mistral, and others, as well as to provide a detailed explanation of the underlying concepts and mechanisms of these models.
+
+As a GPU poor enthusiast, most of the training runs are done on a A6000 GPU with 48GB of memory running less than 24 hours.
 
 ## Achieved Goals
   Improved GPT-2 model:
   - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), GQA, flash attention and learning rate decay while training.
-  - Model params: 123M
-  - Results: 3.08 val loss after 2000 steps and a lowest training loss of 2.88. With further training, 3.029 validation loss was achieved. Minimum training loss at 2.71
-  - Conclusions: A improvement from the original GPT-2 according to the Karpathy's nanogpt baseline of 3.11 train loss and 3.12 val loss. The loss was still decaying when the training achieved 5000 steps so I could keep training in order to achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model.
-  - Further improvements: Change hyperparams to improve the model and keep training it until we can outperform the finetuned baseline of 2.85 val loss. We can add GQA in order to upscale the model and achieve better results.
+  - Model params: 113M
+  - Results: 3.029 validation loss was achieved.
+  - Conclusions: A improvement from the original GPT-2 according to the Karpathy's nanogpt baseline of 3.11 train loss and 3.12 val loss. The loss was still decaying so I could keep training in order to achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model.
+  - Further improvements: Change hyperparams to improve the model and keep training it until we can outperform the finetuned baseline of 2.85 val loss. Using GQA, we could upscale the model and achieve better results without increasing that much the num of params vs GPT-2.
 
 ## Results:
 The results of the experiments can be found in the [TESTS.md](TESTS.md) file.
@@ -99,9 +101,4 @@ The following are among the planned future works and 'To Do' items for this proj
 
 - [x] Implement Tensorboard
 - [x] Add tracking of different test-training metrics (params, testing name, time). 
-- [x] Add gpu usage metrics
 - [x] Augment the logging of the training metrics with wandb (instead of tensorboard)
-- [x] Implement training time metrics
-
-### Code improvements:
-- [x] Clean the training code
