@@ -363,7 +363,7 @@ def test_generation(tr_config: TrainConfig, model_config: ModelConfig):
 
 def evaluate(tr_config: TrainConfig, model_config: ModelConfig):
     model, _, __ = resume_from_checkpoints(tr_config, model_config)
-    model = model.to("cpu")
+    model = model.to("cuda")
     print("Model loaded")
 
     num_correct_norm = 0
