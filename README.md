@@ -97,6 +97,11 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement data parallelism (?)
 - [ ] Implement pipeline parallelism (?)
 
+### Data:
+- [x] Traing with the Fineweb dataset (edu)
+- [ ] Read Efficient Training of Language Models to Fill in the Middle https://arxiv.org/pdf/2207.14255
+- [ ] Read WizardLM (https://arxiv.org/pdf/2304.12244)
+
 ### Observability improvements:
 
 - [x] Implement Tensorboard
