@@ -7,10 +7,12 @@ import tiktoken
 import torch
 import inspect
 
+from hellaswag import get_most_likely_row, iterate_examples, render_example
 from training.model_loader import (
     from_pretrained_rope_gpt2,
     resume_from_checkpoints,
 )
+from huggingface_hub import HfApi, Repository
 from model import ModelConfig, GPTLM
 import os
 
@@ -359,6 +361,37 @@ def test_generation(tr_config: TrainConfig, model_config: ModelConfig):
     print(enc.decode(out[0].cpu().numpy()))
 
 
+def evaluate(tr_config: TrainConfig, model_config: ModelConfig):
+    model, _, __ = resume_from_checkpoints(tr_config, model_config)
+    model = model.to("cpu")
+    print("Model loaded")
+
+    num_correct_norm = 0
+    num_total = 0
+    for i, example in enumerate(iterate_examples("val")):
+        # render the example into tokens and labels
+        _, tokens, mask, label = render_example(example)
+        tokens = tokens.to("cuda")
+        mask = mask.to("cuda")
+        # get the logits
+        with torch.no_grad():
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                logits, loss = model(tokens)
+            pred_norm = get_most_likely_row(tokens, mask, logits)
+        num_total += 1
+        num_correct_norm += int(pred_norm == label)
+
+    acc_norm = num_correct_norm / num_total
+    print(f"HellaSwag accuracy: {num_correct_norm}/{num_total}={acc_norm:.4f}")
+
+    # # Upload model to HF
+    # hf_api = HfApi()
+    # repo = Repository(
+    #     local_dir="GPT2-GQA-RoPe",
+    #     clone_from="polrf/GPT2-GQA-RoPe",
+    # )
+
+
 if __name__ == "__main__":
     os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -392,5 +425,6 @@ if __name__ == "__main__":
         n_kv_heads=4,
         pos_emb="rope",
     )
-    TrainGPTM(tr_config, model_config).train()
+    # TrainGPTM(tr_config, model_config).train()
+    evaluate(tr_config, model_config)
     # test_generation(tr_config, model_config)

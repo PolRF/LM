@@ -15,6 +15,7 @@ transformers = "^4.40.1"
 wandb = "^0.16.6"
 torch-tb-profiler = "^0.4.3"
 torchvision = "^0.18.1"
+huggingface-hub = "^0.24.0"
 
 
 [tool.poetry.group.dev.dependencies]
