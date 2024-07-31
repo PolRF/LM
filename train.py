@@ -131,13 +131,16 @@ class TrainGPTM:
         self.betas = (0.9, 0.95)
         self.optimizer = self._configure_optimizer()
 
+        if tr_config.ddp:
+            self.model = DDP(self.model, device_ids=[self.ddp_local_rank])
         # Logging
-        wandb.init(
-            project=tr_config.wandb_project,
-            name=tr_config.wandb_name,
-            config=tr_config.__dict__,
-        )
-        wandb.watch(self.model)
+        if self.master_process:
+            wandb.init(
+                project=tr_config.wandb_project,
+                name=tr_config.wandb_name,
+                config=tr_config.__dict__,
+            )
+            wandb.watch(self.model)
         if tr_config.profile:
             self._init_profiler()
 
@@ -156,9 +159,6 @@ class TrainGPTM:
             num_processes=self.ddp_world_size,
             split="val",
         )
-
-        if tr_config.ddp:
-            self.model = DDP(self.model, device_ids=[self.ddp_local_rank])
 
     def _init_profiler(self):
         self.profile_dir = os.path.join(
