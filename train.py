@@ -255,7 +255,7 @@ class TrainGPTM:
             x, y = self.val_loader.next_batch()
             x, y = x.to(self.tr_config.device), y.to(self.tr_config.device)
             with torch.autocast(
-                device_type=self.tr_config.device,
+                device_type="cuda",
                 dtype=torch.bfloat16,
             ):
                 logits, loss = self.model(x, y)
