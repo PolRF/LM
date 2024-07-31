@@ -209,7 +209,7 @@ class TrainGPTM:
         fused_available = (
             "fused" in inspect.signature(torch.optim.AdamW).parameters
         )
-        use_fused = fused_available and self.tr_config.device.type == "cuda"
+        use_fused = fused_available and self.tr_config.device == "cuda"
 
         optimizer = torch.optim.AdamW(
             optim_groups,
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     tr_config = TrainConfig(
-        batch_size=32,
+        batch_size=128,
         block_size=1024,
         eval_iters=200,
         init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
@@ -444,7 +444,7 @@ if __name__ == "__main__":
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=16,
+        gradient_accumulation_steps=1,
         loading_mode="from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
@@ -452,7 +452,7 @@ if __name__ == "__main__":
         compile=True,
         grad_clip=1.0,
         profile=False,
-        wandb_name="gpt2-gqa-rope",
+        wandb_name="gpt2-gqa-rope-p5.48x",
     )
     model_config = ModelConfig(
         vocab_size=50304,
