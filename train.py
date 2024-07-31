@@ -261,7 +261,7 @@ class TrainGPTM:
                 logits, loss = self.model(x, y)
             loss = loss / val_loss_steps
             val_loss_accum += loss.detach()
-        return val_loss_accum.item()  # type: ignore
+        return val_loss_accum
 
     def _validate_and_save_checkpoint(self):
         self.val_loader.reset()
@@ -270,6 +270,7 @@ class TrainGPTM:
             dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
         if not self.master_process:
             return
+        val_loss_accum = val_loss_accum.item()  # type: ignore
         wandb.log(
             {
                 "iter": self.iter_num,
