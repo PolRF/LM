@@ -441,10 +441,8 @@ class AttentionBlock(nn.Module):
         if config.n_kv_heads == config.n_head:
             self.attn = DecoderMultiHeadAttention(config)
         elif self.use_rope:
-            print("Using grouped query heads with RoPE")
             self.attn = DecoderGroupedQueryHeadAttentionRope(config)
         elif config.pos_emb == "alibi":
-            print("Using grouped query heads with Alibi")
             self.attn = DecoderGroupedQueryHeadAttentionAlibi(config)
         self.ffn = FFN(config)
 

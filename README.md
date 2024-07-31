@@ -82,6 +82,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Use Fineweb dataset instead of Openwebtext
 - [x] Implement some optimizations to speed up training
 - [x] Add pytorch profiler
+- [x] Implement distributed data parallelism
 - [ ] Implement changing batch size during training
 - [ ] Implement changing batch size during validation
 - [ ] Check param initialization
@@ -92,7 +93,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement gradient checkpointing to reduce memory usage
 - [ ] Implement early stopping
 - [ ] Take a look at pytorch lightning
-- [ ] Implement distributed training (?)
 - [ ] Implement model parallelism (?)
 - [ ] Implement data parallelism (?)
 - [ ] Implement pipeline parallelism (?)

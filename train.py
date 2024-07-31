@@ -17,8 +17,10 @@ from model import ModelConfig, GPTLM
 import os
 
 from training.data_loader import FineWebEduDataLoader
-
+from torch.distributed import init_process_group, destroy_process_group
 import wandb
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
 
 BASE_DATA_PATH = "./data/"
 BASE_CHECKPOINT_PATH = "./checkpoints_with_training_gqa/"
@@ -42,6 +44,7 @@ class TrainConfig:
     gradient_accumulation_steps: int = 5 * 8
     always_save_checkpoint: bool = False
     compile: bool = False
+    ddp: bool = False
     grad_clip: float = 1.0
     loading_mode: Literal[
         "from_scratch", "from_pretrained", "resume_from_checkpoint"
@@ -75,11 +78,32 @@ class TrainGPTM:
         self.loss_accum = 0.0
         self.time_0 = 0.0
 
+        # Distributed Data Parallel
+        if tr_config.ddp:
+            assert torch.cuda.is_available()
+            init_process_group(backend="nccl")
+            self.ddp_rank = int(os.environ["RANK"])
+            self.ddp_local_rank = int(os.environ["LOCAL_RANK"])
+            self.ddp_world_size = int(os.environ["WORLD_SIZE"])
+            device = f"cuda:{self.ddp_local_rank}"
+            self.tr_config.device = device  # type: ignore
+            tr_config.device = device  # type: ignore
+            torch.cuda.set_device(self.tr_config.device)
+            self.master_process = (
+                self.ddp_rank == 0
+            )  # master process will log and save the checkpoints
+        else:
+            self.ddp_rank = 0
+            self.ddp_local_rank = 0
+            self.ddp_world_size = 1
+            self.master_process = True
+
         # Checkpoints
         if tr_config.checkpoint_output_dir and not os.path.exists(
             tr_config.checkpoint_output_dir
         ):
-            print(f"Creating directory: {tr_config.checkpoint_output_dir}")
+            if self.master_process:
+                print(f"Creating directory: {tr_config.checkpoint_output_dir}")
             os.makedirs(tr_config.checkpoint_output_dir)
 
         # Maybe we can remove this outside of the class and pass it as a parameter
@@ -97,10 +121,11 @@ class TrainGPTM:
         self.model.to(tr_config.device)
         if tr_config.compile:
             self.model: torch.nn.Module = torch.compile(self.model)  # type: ignore
-        print(
-            sum(p.numel() for p in self.model.parameters()) / 1e6,
-            "M parameters",
-        )
+        if self.master_process:
+            print(
+                sum(p.numel() for p in self.model.parameters()) / 1e6,
+                "M parameters",
+            )
 
         # optimizer
         self.betas = (0.9, 0.95)
@@ -120,17 +145,20 @@ class TrainGPTM:
         self.train_loader = FineWebEduDataLoader(
             B=tr_config.batch_size,
             T=tr_config.block_size,
-            process_rank=0,
-            num_processes=1,
+            process_rank=self.ddp_rank,
+            num_processes=self.ddp_world_size,
             split="train",
         )
         self.val_loader = FineWebEduDataLoader(
             B=tr_config.batch_size,
             T=tr_config.block_size,
-            process_rank=0,
-            num_processes=1,
+            process_rank=self.ddp_rank,
+            num_processes=self.ddp_world_size,
             split="val",
         )
+
+        if tr_config.ddp:
+            self.model = DDP(self.model, device_ids=[self.ddp_local_rank])
 
     def _init_profiler(self):
         self.profile_dir = os.path.join(
@@ -170,12 +198,13 @@ class TrainGPTM:
         ]
         num_decay_params = sum(p.numel() for p in decay_params)
         num_nodecay_params = sum(p.numel() for p in nodecay_params)
-        print(
-            f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
-        )
-        print(
-            f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"
-        )
+        if self.master_process:
+            print(
+                f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters"
+            )
+            print(
+                f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters"
+            )
         # Create AdamW optimizer and use the fused version if it is available
         fused_available = (
             "fused" in inspect.signature(torch.optim.AdamW).parameters
@@ -188,7 +217,8 @@ class TrainGPTM:
             betas=self.betas,
             fused=use_fused,
         )
-        print(f"using fused AdamW: {use_fused}")
+        if self.master_process:
+            print(f"using fused AdamW: {use_fused}")
 
         return optimizer
 
@@ -236,6 +266,10 @@ class TrainGPTM:
     def _validate_and_save_checkpoint(self):
         self.val_loader.reset()
         val_loss_accum = self._estimate_loss()
+        if self.tr_config.ddp:
+            dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
+        if not self.master_process:
+            return
         wandb.log(
             {
                 "iter": self.iter_num,
@@ -274,9 +308,14 @@ class TrainGPTM:
 
     def _microstep_training(self):
         self.loss_accum = 0.0
-        for _ in range(self.tr_config.gradient_accumulation_steps):
+        for micro_step in range(self.tr_config.gradient_accumulation_steps):
             x, y = self.train_loader.next_batch()
             x, y = x.to(self.tr_config.device), y.to(self.tr_config.device)
+            if self.tr_config.ddp:
+                self.model.require_backward_grad_sync = (
+                    micro_step
+                    == self.tr_config.gradient_accumulation_steps - 1
+                )
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 logits, loss = self.model(x, y)
 
@@ -284,6 +323,8 @@ class TrainGPTM:
             self.loss_accum += loss.detach()
             # There is no need of using scaler is we are not using float16
             loss.backward()
+        if self.tr_config.ddp:
+            dist.all_reduce(self.loss_accum, op=dist.ReduceOp.AVG)
 
     def _log_iteration(self):
         time_elapsed = time.time() - self.time_0
@@ -337,7 +378,8 @@ class TrainGPTM:
             self.optimizer.step()
             # Wait for the GPU to finish
             torch.cuda.synchronize()
-            self._log_iteration()
+            if self.master_process:
+                self._log_iteration()
 
             if self.tr_config.profile and self.iter_num % 10 == 0:
                 assert self.profiler
@@ -345,6 +387,8 @@ class TrainGPTM:
                 self.profiler.stop()
                 self.profiler.export_chrome_trace(self.profile_dir)
                 break
+        if self.tr_config.ddp:
+            destroy_process_group()
 
 
 def test_generation(tr_config: TrainConfig, model_config: ModelConfig):
@@ -384,13 +428,6 @@ def evaluate(tr_config: TrainConfig, model_config: ModelConfig):
     acc_norm = num_correct_norm / num_total
     print(f"HellaSwag accuracy: {num_correct_norm}/{num_total}={acc_norm:.4f}")
 
-    # # Upload model to HF
-    # hf_api = HfApi()
-    # repo = Repository(
-    #     local_dir="GPT2-GQA-RoPe",
-    #     clone_from="polrf/GPT2-GQA-RoPe",
-    # )
-
 
 if __name__ == "__main__":
     os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
@@ -411,6 +448,7 @@ if __name__ == "__main__":
         loading_mode="from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
+        ddp=True,
         compile=True,
         grad_clip=1.0,
         profile=False,
