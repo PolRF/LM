@@ -255,7 +255,7 @@ class TrainGPTM:
             x, y = self.val_loader.next_batch()
             x, y = x.to(self.tr_config.device), y.to(self.tr_config.device)
             with torch.autocast(
-                device_type=self.tr_config.device.__str__(),
+                device_type=self.tr_config.device,
                 dtype=torch.bfloat16,
             ):
                 logits, loss = self.model(x, y)
@@ -463,6 +463,6 @@ if __name__ == "__main__":
         n_kv_heads=4,
         pos_emb="rope",
     )
-    # TrainGPTM(tr_config, model_config).train()
-    evaluate(tr_config, model_config)
+    TrainGPTM(tr_config, model_config).train()
+    # evaluate(tr_config, model_config)
     # test_generation(tr_config, model_config)
