@@ -69,7 +69,7 @@ class TrainGPTM:
         torch.set_float32_matmul_precision("high")
 
         # Initial vars
-        self.max_iters = 100_000
+        self.max_iters = 250_000
         self.eval_interval = 500
         self.iter_num = 0
         self.best_val_loss = 1e9
@@ -441,7 +441,7 @@ if __name__ == "__main__":
         lr=6e-4,
         min_lr=6e-5,
         warmup_iters=10_000,
-        lr_decay_iters=250_000,
+        lr_decay_iters=100_000,
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
