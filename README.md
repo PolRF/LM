@@ -10,11 +10,12 @@ As a GPU poor enthusiast, most of the training runs are done on a A6000 GPU with
 
 ## Achieved Goals
   Improved GPT-2 model:
-  - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), GQA, flash attention and learning rate decay while training.
+  - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), GQA, flash attention and learning rate decay while training. 14h of training (250k steps).
+  - Dataset: Fineweb dataset (edu) 10B
+  - Infra: AWS p5.48xlarge instance (8xH100 GPUs).
   - Model params: 113M
-  - Results: 3.029 validation loss was achieved.
-  - Conclusions: A improvement from the original GPT-2 according to the Karpathy's nanogpt baseline of 3.11 train loss and 3.12 val loss. The loss was still decaying so I could keep training in order to achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model.
-  - Further improvements: Change hyperparams to improve the model and keep training it until we can outperform the finetuned baseline of 2.85 val loss. Using GQA, we could upscale the model and achieve better results without increasing that much the num of params vs GPT-2.
+  - Results: Hellaswag evaluation accuracy of 32.03%. val loss: 2.978, train loss: 2.787
+  - Conclusions: Improved the Andrej Karpathy's benchmark of 29.55% to 32.03% on hellaswag eval (repo) with less params.
 
 ## Results:
 The results of the experiments can be found in the [TESTS.md](TESTS.md) file.
@@ -31,14 +32,11 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Take a look to Flash Attention (https://arxiv.org/pdf/2205.14135.pdf)
 - [x] Implement RoPE
 - [x] Implement weight sharing between token embedding and the last lm_head layer
-- [x] Improve the RoPE implementation to apply the rotation to both the queries and keys at the same time
 - [x] Implement weight tying (https://arxiv.org/pdf/1608.05859.pdf)
-- [x] Scale the model to visualize better the improvements
 - [x] Implement Grouped Query Attention (GQA)
 - [x] Check training with autocast disabled for apply_rope
 - [x] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
 - [ ] Implement KV-cache
-- [ ] Implement "model surgery to decrease the block size"
 - [ ] Implement Mixture of Experts (Mixtral)
 - [ ] Mistral 7B
 - [ ] Mixtral 8x7B
@@ -57,6 +55,9 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
 - [ ] Implement LongRope (https://arxiv.org/pdf/2402.13753)
+- [ ] Upscale the model and dataset to 2B params
+- [ ] Integrate with hugging face AutoConfig and AutoModel
+- [ ] Submit LLM to hugging face open llm leaderboard https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
 
 ### Fine-tuning improvements:
 
@@ -94,7 +95,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement early stopping
 - [ ] Take a look at pytorch lightning
 - [ ] Implement model parallelism (?)
-- [ ] Implement data parallelism (?)
 - [ ] Implement pipeline parallelism (?)
 
 ### Data:
