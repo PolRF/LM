@@ -464,6 +464,6 @@ if __name__ == "__main__":
         n_kv_heads=4,
         pos_emb="rope",
     )
-    TrainGPTM(tr_config, model_config).train()
-    # evaluate(tr_config, model_config)
+    # TrainGPTM(tr_config, model_config).train()
+    evaluate(tr_config, model_config)
     # test_generation(tr_config, model_config)
