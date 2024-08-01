@@ -349,8 +349,8 @@ class TrainGPTM:
         )
 
     def train(self):
-        for i in range(self.max_iters):
-            self.iter_num = i
+        for i in range(self.max_iters - self.iter_num):
+            self.iter_num += 1
             if self.tr_config.profile:
                 assert self.profiler
                 self.profiler.step()
