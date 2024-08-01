@@ -453,7 +453,7 @@ if __name__ == "__main__":
         compile=True,
         grad_clip=1.0,
         profile=False,
-        wandb_name="gpt2-gqa-rope-p5.48x",
+        wandb_name="gpt2-gqa-rope-p5.48x-continue",
     )
     model_config = ModelConfig(
         vocab_size=50304,
