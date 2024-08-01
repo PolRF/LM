@@ -441,12 +441,12 @@ if __name__ == "__main__":
         lr=6e-4,
         min_lr=6e-5,
         warmup_iters=10_000,
-        lr_decay_iters=100_000,
+        lr_decay_iters=250_000,
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
         gradient_accumulation_steps=1,
-        loading_mode="from_scratch",
+        loading_mode="resume_from_checkpoint",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
         ddp=True,
@@ -464,6 +464,6 @@ if __name__ == "__main__":
         n_kv_heads=4,
         pos_emb="rope",
     )
-    # TrainGPTM(tr_config, model_config).train()
-    evaluate(tr_config, model_config)
+    TrainGPTM(tr_config, model_config).train()
+    # evaluate(tr_config, model_config)
     # test_generation(tr_config, model_config)
