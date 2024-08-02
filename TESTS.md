@@ -40,7 +40,7 @@
   - Results: The time per step has decreased to 8-10 seconds thanks to compilation and mixed precision. Now the model can compare to the Karpathy's initial setup. I achived 3.387 loss training from scratch the GPT-2 model with RoPE and dynamic learning rate. The model was using 26gb of gpu (A6000). 
   - Conclusions: The training was as expected, if we could train for more than 60k iterations (aprox the 600k of Karpathy's initial setup) we could achieve a lower loss (arround 2.85). The time per step was 1.8s.
   - Final setup: 60k iterations, 6e-4 to 6e-5 decaying lr, warmup 2k steps, 0.1 weight decay, 12 batch size and 5 gradient accumulation steps (to match the 0.5M tokens of the original setup we should accumulate 40 steps). 1.0 gradient clip. Also I used the 50304 vocab size instead of 50257 and 0.0 dropout.
-  - Further considerations: Before the modifications of the training script, I was able to achieve better loss of 3.08 with from pretrained gpt-2 with 2 days of training. With the current script I achieved 3.38 with 31h of training but with a more stable training from scratch, not pretrained weights. After adding schedulers, mix precisions, weight decaying and much more training features, I wasn't able to train the model from pretrained weights, the model validation loss kept increasing after the first 500 steps (6 loss) and after 2k steps, the training los kept increasing from 4 to 5. I could only train the model from scratch with float32. I should investigate why the model is not learning from pretrained weights (maybe some problem with the bf16 dtype). Some people posted on Kaprathy's repo that the training loss was exploding when using Karpathy's setup around step 20k.
+  - Further considerations: Before the modifications of the training script, I was able to achieve better loss of 3.08 pretraining gpt-2 after 2 days of training. With the current script I achieved 3.38 with 31h of training but with a more stable training from scratch, not pretrained weights. After adding schedulers, mix precisions, weight decaying and much more training features, I wasn't able to train the model from pretrained weights, the model validation loss kept increasing after the first 500 steps (6 loss) and after 2k steps, the training loss kept increasing from 4 to 5. I could only train the model from scratch with float32. I should investigate why the model is not learning from pretrained weights (maybe some problem with the bf16 dtype). Some people posted on Kaprathy's repo that the training loss was exploding when using Karpathy's setup around step 20k.
   - Additional comments: I could keep training the model (maybe i will) until I achieve the 2.85 benchmark of a finetuned gpt-2 just to make sure that with less params, rotary positional embeddings and other changes could improve the base gpt-2 model. 
   ![training-validation-curve](image.png)
 - GPT-2 Rope + GQA:
@@ -50,3 +50,11 @@
   - Conclusions: Significant improvement not only on the training time but also on the achieved loss with less trainable params (113M vs 123M).
   ![alt text](image-1.png)
   
+-GPT-2 Rope + GQA + 8xH100:
+  - I could train the model on a cluster of 8xH100 gpus. The model achieved a better Hellaswag evaluation result.
+  - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), GQA, flash attention and learning rate decay while training. 14h of training (250k steps).
+  - Dataset: Fineweb dataset (edu) 10B
+  - Infra: AWS p5.48xlarge instance (8xH100 GPUs).
+  - Model params: 113M
+  - Results: Hellaswag evaluation accuracy of 32.03%. val loss: 2.978, train loss: 2.787
+  - Conclusions: Improved the Andrej Karpathy's benchmark of 29.55% to 32.03% on hellaswag eval (repo) with less params.
