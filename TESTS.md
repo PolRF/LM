@@ -49,8 +49,7 @@
   - Results: The model trained much faster than the best result achieved before (take a look to the images comparing both runs). The model achieved better validation and training loss not only faster but also with less steps. The time per step was reduced from 1.8s to 0.8s and the model was using 14gb vs 26gb (the gpt-2 without gqa) of the gpu memory. With almost 24h of training the model achieved a validation loss of 3.305 vs 3.507. 
   - Conclusions: Significant improvement not only on the training time but also on the achieved loss with less trainable params (113M vs 123M).
   ![alt text](image-1.png)
-  
--GPT-2 Rope + GQA + 8xH100:
+- GPT-2 Rope + GQA + 8xH100:
   - I could train the model on a cluster of 8xH100 gpus. The model achieved a better Hellaswag evaluation result.
   - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), GQA, flash attention and learning rate decay while training. 14h of training (250k steps).
   - Dataset: Fineweb dataset (edu) 10B
