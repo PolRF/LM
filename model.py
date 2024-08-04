@@ -260,7 +260,12 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
             device=config.device,
         )
 
-    def forward(self, x: torch.Tensor, rope_freqs: torch.Tensor):
+    def forward(
+        self,
+        x: torch.Tensor,
+        rope_freqs: torch.Tensor,
+        start_position: int = 0,
+    ):
         B, T, C = x.shape
         q = self.q(x)
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
@@ -271,6 +276,13 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
 
         with torch.autocast(enabled=False, device_type=str("cuda")):
             q, k = apply_rope(q, k, rope_freqs, str(x.device))
+
+        # Cache the keys and values:
+        self.cache_k[:B, start_position : start_position + T] = k
+        self.cache_v[:B, start_position : start_position + T] = v
+
+        k = self.cache_k[:B, : start_position + T]
+        v = self.cache_v[:B, : start_position + T]
 
         # Repeat the keys and values to match query heads
         k = k.repeat_interleave(self.q_kv_proportion, dim=1)
@@ -455,14 +467,14 @@ class AttentionBlock(nn.Module):
                 device=str(config.device),
             )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, start_pos: int):
         B, Seq_len, C = x.shape
         # Take into account that we apply the normalization before the attention block
         # This is a modification from original paper Attention is All You Need
         # (a better implementation)
         if self.use_rope:
             rope_freqs = self.rope_frequencies[0:Seq_len]
-            x = x + self.attn(self.ln1(x), rope_freqs)
+            x = x + self.attn(self.ln1(x), rope_freqs, start_pos)
         else:
             x = x + self.attn(self.ln1(x))
 
@@ -511,7 +523,7 @@ class GPTLM(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, targets=None, start_pos: int = 0):
         B, Seq_len = idx.shape
         # Get the device of the input
         # device = idx.device
@@ -525,7 +537,7 @@ class GPTLM(nn.Module):
         # DEPRECATED (we use RoPE Now): Add the positional embedding to the token embedding
         # x = x + pos_emb # (B,Seq_len,C)
         for block in self.blocks:
-            x = block(x)
+            x = block(x, start_pos)
         x = self.ln_f(x)  # (B,T,C)
         logits = self.lm_head(x)  # (B,T,vocab_size)
 

@@ -36,12 +36,12 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement Grouped Query Attention (GQA)
 - [x] Check training with autocast disabled for apply_rope
 - [x] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
-- [ ] Implement KV-cache
+- [x] Implement KV-cache
+- [ ] Mamba
 - [ ] Implement Mixture of Experts (Mixtral)
 - [ ] Mistral 7B
 - [ ] Mixtral 8x7B
 - [ ] Llama 2 8B
-- [ ] Mamba
 - [ ] Jamba
 - [ ] Implement SAMBA
 - [ ] Implement the Transformer-XL
