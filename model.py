@@ -25,6 +25,10 @@ class ModelConfig:
     max_seq_len: int = 1024
     max_batch_size: int = 32
 
+    # Mixture of Experts
+    num_experts: int = 1
+    num_experts_per_token: int | None = None
+
 
 class GELU(nn.Module):
     """
@@ -417,6 +421,49 @@ class DecoderGroupedQueryHeadAttentionAlibi(nn.Module):
         return output
 
 
+class MixtureOfExpertsLayer(nn.Module):
+    """
+    Mixture of experts layer.
+    Experts are just FNN layers.
+    """
+
+    def __init__(self, config: ModelConfig) -> None:
+        super().__init__()
+        self.config = config
+        assert config.num_experts > 1
+        assert config.num_experts_per_token is not None
+
+        self.experts = nn.ModuleList(
+            [FFN(config) for _ in range(config.num_experts)]
+        )
+        # Gate is the router that will select the experts for each token
+        self.gate = nn.Linear(config.n_embd, config.num_experts, bias=False)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        routes = self.gate(inputs)
+        # Select the top k experts for each token
+        assert self.config.num_experts_per_token is not None
+        weights, selected_experts = torch.topk(
+            routes, self.config.num_experts_per_token
+        )
+        # Apply softmax to the weights
+        weights = F.softmax(weights, dim=1, dtype=torch.float).to(inputs.dtype)
+        results = torch.zeros_like(inputs)
+        for i, expert in enumerate(self.experts):
+            # Get the batch index and the index of the expert
+            batch_idx, nth_expert = torch.where(selected_experts == i)
+
+            # weights[batch_idx, nth_expert, None] will broadcast the weights to the same shape as the expert output
+            # This will allow us to multiply the weights by the output of the expert (FFN)
+            # We have to multiply the weights by the output of the expert because the weights are the probability (and contribution)
+            # of each expert to the final output.
+            # Also, it allows the gradients to flow through the network.
+            results[batch_idx] += weights[
+                batch_idx, nth_expert, None
+            ] * expert(inputs[batch_idx])
+        return results
+
+
 class FFN(nn.Module):
     """
     Feed forward network.
@@ -455,7 +502,11 @@ class AttentionBlock(nn.Module):
             self.attn = DecoderGroupedQueryHeadAttentionRope(config)
         elif config.pos_emb == "alibi":
             self.attn = DecoderGroupedQueryHeadAttentionAlibi(config)
-        self.ffn = FFN(config)
+
+        if config.num_experts > 1:
+            self.ffn = MixtureOfExpertsLayer(config)
+        else:
+            self.ffn = FFN(config)
 
         # RoPE
         # We need to initialize the frequency tensor for the rotary position embedding

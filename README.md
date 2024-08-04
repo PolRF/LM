@@ -37,8 +37,11 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Check training with autocast disabled for apply_rope
 - [x] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
 - [x] Implement KV-cache
+- [x] Implement Mixture of Experts
+- [ ] Train a model with 2-3 and 7B params
+- [ ] Extend context of a trained model to 128K through LongRope and finetuning if needed
+- [ ] Integrate with hugging face AutoConfig and AutoModel
 - [ ] Mamba
-- [ ] Implement Mixture of Experts (Mixtral)
 - [ ] Mistral 7B
 - [ ] Mixtral 8x7B
 - [ ] Llama 2 8B
@@ -55,8 +58,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
 - [ ] Implement LongRope (https://arxiv.org/pdf/2402.13753)
-- [ ] Upscale the model and dataset to 2B params
-- [ ] Integrate with hugging face AutoConfig and AutoModel
 - [ ] Submit LLM to hugging face open llm leaderboard https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
 
 ### Fine-tuning improvements:
