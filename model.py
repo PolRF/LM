@@ -45,7 +45,6 @@ class GELU(nn.Module):
         )
 
 
-# @torch.jit.script
 def _rope_frequency(
     head_dim: int, seq_len: int, device: str, theta: float = 10000.0
 ) -> torch.Tensor:
