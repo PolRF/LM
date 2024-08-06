@@ -281,11 +281,11 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
             q, k = apply_rope(q, k, rope_freqs, str(x.device))
 
         # Cache the keys and values:
-        self.cache_k[:B, start_position : start_position + T] = k
-        self.cache_v[:B, start_position : start_position + T] = v
+        # self.cache_k[:B, start_position : start_position + T] = k
+        # self.cache_v[:B, start_position : start_position + T] = v
 
-        k = self.cache_k[:B, : start_position + T]
-        v = self.cache_v[:B, : start_position + T]
+        # k = self.cache_k[:B, : start_position + T]
+        # v = self.cache_v[:B, : start_position + T]
 
         # Repeat the keys and values to match query heads
         k = k.repeat_interleave(self.q_kv_proportion, dim=1)
