@@ -209,7 +209,7 @@ class TrainGPTM:
         fused_available = (
             "fused" in inspect.signature(torch.optim.AdamW).parameters
         )
-        use_fused = fused_available and self.tr_config.device == "cuda"
+        use_fused = fused_available  # and self.tr_config.device == "cuda"
 
         optimizer = torch.optim.AdamW(
             optim_groups,
