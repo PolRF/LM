@@ -120,7 +120,7 @@ class TrainGPTM:
 
         self.model.to(tr_config.device)
         if tr_config.compile:
-            self.model: torch.nn.Module = torch.compile(self.model, options={"accumulated_cache_size_limit": 128})  # type: ignore
+            self.model: torch.nn.Module = torch.compile(self.model)  # type: ignore
         if self.master_process:
             print(
                 sum(p.numel() for p in self.model.parameters()) / 1e6,
@@ -466,6 +466,9 @@ if __name__ == "__main__":
         num_experts=8,
         num_experts_per_token=2,
     )
+    import torch._dynamo.config as config
+
+    config.accumulated_cache_size_limit = 128
     TrainGPTM(tr_config, model_config).train()
     # evaluate(tr_config, model_config)
     # test_generation(tr_config, model_config)
