@@ -440,36 +440,48 @@ class MixtureOfExpertsLayer(nn.Module):
         self.gate = nn.Linear(config.n_embd, config.num_experts, bias=False)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        batch_size, sequence_length, hidden_dim = inputs.shape
+        inputs = inputs.view(-1, self.config.n_embd)
         routes = self.gate(inputs)
         # Select the top k experts for each token
         # where k is the num of experts per token we want to use
         assert self.config.num_experts_per_token is not None
-        weights, selected_experts = torch.topk(
-            routes, self.config.num_experts_per_token
-        )
-        # Apply softmax to the weights
-        weights = F.softmax(weights, dim=-1, dtype=torch.float).to(
-            inputs.dtype
-        )
-        results = torch.zeros_like(inputs)
-        for i, expert in enumerate(self.experts):
-            # Get the batch index and the index of the expert
-            batch_idx, seq_idx, expert_idx = torch.where(selected_experts == i)
 
-            # weights[batch_idx, nth_expert, None] will broadcast the weights to the same shape as the expert output
-            # This will allow us to multiply the weights by the output of the expert (FFN)
-            # We have to multiply the weights by the output of the expert because the weights are the probability (and contribution)
-            # of each expert to the final output.
-            # Also, it allows the gradients to flow through the network.
-            if batch_idx.numel() > 0:
-                # Get the corresponding inputs and weights
-                expert_inputs = inputs[batch_idx, seq_idx]
-                expert_weights = weights[batch_idx, seq_idx, expert_idx]
-                # Apply the expert and weight the results
-                expert_output = expert(expert_inputs)
-                results[batch_idx, seq_idx] += (
-                    expert_weights.unsqueeze(-1) * expert_output
-                )
+        weights = F.softmax(routes, dim=1, dtype=torch.float).to(inputs.dtype)
+        weights, selected_experts = torch.topk(
+            weights, self.config.num_experts_per_token
+        )
+        weights /= weights.sum(dim=-1, keepdim=True)
+        # we cast back to the input dtype
+        weights = weights.to(inputs.dtype)
+        # Apply softmax to the weights
+        results = torch.zeros(
+            (batch_size * sequence_length, hidden_dim),
+            dtype=weights.dtype,
+            device=weights.device,
+        )
+
+        expert_mask = torch.nn.functional.one_hot(
+            selected_experts, num_classes=self.config.num_experts
+        ).permute(2, 1, 0)
+        for expert_idx in range(self.config.num_experts):
+            expert_layer = self.experts[expert_idx]
+            idx, top_x = torch.where(expert_mask[expert_idx])
+
+            # Index the correct hidden states and compute the expert hidden state for
+            # the current expert. We need to make sure to multiply the output hidden
+            # states by `routing_weights` on the corresponding tokens (top-1 and top-2)
+            current_state = inputs[None, top_x].reshape(-1, hidden_dim)
+            current_hidden_states = (
+                expert_layer(current_state) * weights[top_x, idx, None]
+            )
+
+            # However `index_add_` only support torch tensors for indexing so we'll use
+            # the `top_x` tensor here.
+            results.index_add_(
+                0, top_x, current_hidden_states.to(inputs.dtype)
+            )
+        results = results.reshape(batch_size, sequence_length, hidden_dim)
         return results
 
 
