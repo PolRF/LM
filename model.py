@@ -445,28 +445,25 @@ class MixtureOfExpertsLayer(nn.Module):
         # where k is the num of experts per token we want to use
         assert self.config.num_experts_per_token is not None
         weights, selected_experts = torch.topk(
-            routes, self.config.num_experts_per_token, dim=-1
+            routes, self.config.num_experts_per_token
         )
+        print("selected_experts shape:", selected_experts.shape)
         # Apply softmax to the weights
         weights = F.softmax(weights, dim=1, dtype=torch.float).to(inputs.dtype)
         results = torch.zeros_like(inputs)
         for i, expert in enumerate(self.experts):
             # Get the batch index and the index of the expert
-            # batch_idx, nth_expert = torch.where(selected_experts == i)
+            print("length: ", len(torch.where(selected_experts == i)))
+            batch_idx, nth_expert = torch.where(selected_experts == i)
 
             # weights[batch_idx, nth_expert, None] will broadcast the weights to the same shape as the expert output
             # This will allow us to multiply the weights by the output of the expert (FFN)
             # We have to multiply the weights by the output of the expert because the weights are the probability (and contribution)
             # of each expert to the final output.
             # Also, it allows the gradients to flow through the network.
-            indices = torch.where(selected_experts == i)
-            if len(indices[0]) > 0:
-                batch_idx, token_idx = indices[0], indices[1]
-                expert_outputs = expert(inputs[batch_idx, token_idx])
-                # Multiply the weights with the expert outputs and accumulate the results
-                results[batch_idx, token_idx] += (
-                    weights[batch_idx, token_idx] * expert_outputs
-                )
+            results[batch_idx] += weights[
+                batch_idx, nth_expert, None
+            ] * expert(inputs[batch_idx])
         return results
 
 
