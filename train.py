@@ -453,18 +453,19 @@ if __name__ == "__main__":
         compile=True,
         grad_clip=1.0,
         profile=False,
-        wandb_name="gpt2-MoE",
+        wandb_name="gpt2-GPT-500M",
     )
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=1024,
+        n_embd=1280,
         device=tr_config.device,
         dropout=0.1,
         n_head=16,
         n_kv_heads=4,
         pos_emb="rope",
-        num_experts=8,
-        num_experts_per_token=2,
+        num_experts=1,
+        num_experts_per_token=None,
     )
     import torch._dynamo.config as config
 

@@ -37,8 +37,9 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Check training with autocast disabled for apply_rope
 - [x] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
 - [x] Implement KV-cache
-- [x] Implement Mixture of Experts
-- [ ] Train a model with 2-3 and 7B params
+- [x] Implement Mixture of Experts 500M params
+- [ ] Compare MoE with GPT-2 (same size)
+- [ ] Train a model with 2-3-7B params
 - [ ] Extend context of a trained model to 128K through LongRope and finetuning if needed
 - [ ] Integrate with hugging face AutoConfig and AutoModel
 - [ ] Mamba

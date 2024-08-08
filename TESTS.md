@@ -57,3 +57,10 @@
   - Model params: 113M
   - Results: Hellaswag evaluation accuracy of 32.03%. val loss: 2.978, train loss: 2.787
   - Conclusions: Improved the Andrej Karpathy's benchmark of 29.55% to 32.03% on hellaswag eval (repo) with less params.
+- GQA + RoPE + MoE:
+  - Context: Implemented Mixture of Experts to improve the model. The model was trained with 16 query heads and 4 key-value heads, 8 experts and 2 experts per token. 500M params in total.
+  - Dataset: Fineweb dataset (edu) 10B
+  - Training: 220k steps. 35h.
+  - Infra: AWS p5.48xlarge instance (8xH100 GPUs).
+  - Model params: 500M
+  - Results: Hellaswag evaluation accuracy of 39.54%. val loss: 2.696, train loss: 2.485
