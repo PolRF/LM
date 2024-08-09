@@ -468,9 +468,7 @@ if __name__ == "__main__":
         num_experts=1,
         num_experts_per_token=None,
     )
-    import torch._dynamo.config as config
 
-    config.accumulated_cache_size_limit = 128
     TrainGPTM(tr_config, model_config).train()
     # evaluate(tr_config, model_config)
     # test_generation(tr_config, model_config)
