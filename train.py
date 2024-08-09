@@ -458,7 +458,7 @@ if __name__ == "__main__":
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=1024,
-        n_embd=1280,
+        n_embd=768,
         device=tr_config.device,
         dropout=0.0,
         n_head=16,
