@@ -494,9 +494,9 @@ class FFN(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(config.n_embd, 4 * config.n_embd * 8, bias=True),
+            nn.Linear(config.n_embd, 4 * config.n_embd, bias=True),
             nn.GELU(),
-            nn.Linear(4 * config.n_embd * 8, config.n_embd, bias=True),
+            nn.Linear(4 * config.n_embd, config.n_embd, bias=True),
             nn.Dropout(config.dropout),
         )
 
