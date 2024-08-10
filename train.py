@@ -8,7 +8,7 @@ import torch
 import inspect
 
 from hellaswag import get_most_likely_row, iterate_examples, render_example
-from training.model_loader import (
+from loaders.model_loader import (
     from_pretrained_rope_gpt2,
     resume_from_checkpoints,
 )
@@ -16,7 +16,7 @@ from huggingface_hub import HfApi, Repository
 from model import ModelConfig, GPTLM
 import os
 
-from training.data_loader import FineWebEduDataLoader
+from loaders.data_loader import FineWebEduDataLoader
 from torch.distributed import init_process_group, destroy_process_group
 import wandb
 from torch.nn.parallel import DistributedDataParallel as DDP

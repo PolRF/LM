@@ -38,8 +38,10 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement Alibi (https://arxiv.org/pdf/2405.17247.pdf)
 - [x] Implement KV-cache
 - [x] Implement Mixture of Experts 500M params
+- [x] Train a model with 2.3B (GPT-XL)
 - [ ] Compare MoE with GPT-2 (same size)
-- [ ] Train a model with 2-3-7B params
+- [ ] Implement Swiglu
+- [ ] Change gpt2 tokenizer to Llama 3.1 tokenizer
 - [ ] Extend context of a trained model to 128K through LongRope and finetuning if needed
 - [ ] Integrate with hugging face AutoConfig and AutoModel
 - [ ] Mamba
@@ -53,13 +55,13 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement Infinite attention (https://arxiv.org/pdf/2404.07143.pdf)
 - [ ] Study if Infinite attention can be implemented on top of pre-trained models like Mixtral of Experts
 - [ ] BitNet: Scaling 1-bit Transformers for Large Language Models (https://arxiv.org/pdf/2310.11453.pdf)
-- [ ] Try KAN layer instead of MLP (FFN) (paper:https://arxiv.org/abs/2404.19756, code: https://github.com/KindXiaoming/pykan)
 - [ ] Implement model scaling
 - [ ] CLLMs (multi token prediction)
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
 - [ ] Implement LongRope (https://arxiv.org/pdf/2402.13753)
 - [ ] Submit LLM to hugging face open llm leaderboard https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
+- [ ] Implement multiple Rope theta values for different sequence lengths and see how it affects the model
 
 ### Fine-tuning improvements:
 
@@ -86,10 +88,9 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement some optimizations to speed up training
 - [x] Add pytorch profiler
 - [x] Implement distributed data parallelism
-- [ ] Implement changing batch size during training
-- [ ] Implement changing batch size during validation
+- [x] Implement some evalutations --> Hellaswag
+- [ ] Implement changing batch size during training and validation
 - [ ] Check param initialization
-- [ ] Implement some validations --> Hellaswag
 - [ ] Re-read GPT-3 paper to improve the training of the model (https://arxiv.org/abs/2005.14165)
 - [ ] New SOTA AdamW optimizer
 - [ ] Implement caching for the attention mechanism (across the model)
@@ -100,7 +101,8 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Implement pipeline parallelism (?)
 
 ### Data:
-- [x] Traing with the Fineweb dataset (edu)
+- [x] Traing with the Fineweb dataset (edu) 10B
+- [ ] Train using a finetuning instruction dataset
 - [ ] Read Efficient Training of Language Models to Fill in the Middle https://arxiv.org/pdf/2207.14255
 - [ ] Read WizardLM (https://arxiv.org/pdf/2304.12244)
 
