@@ -31,7 +31,6 @@ BASE_PROFILER_PATH = "./profiler/"
 class TrainConfig:
     batch_size: int  # if gradient_accumulation_steps is >1, then this is the mini-batch size
     block_size: int
-    eval_iters: int
     init_lr: float
     lr: float
     min_lr: float
@@ -69,8 +68,8 @@ class TrainGPTM:
         torch.set_float32_matmul_precision("high")
 
         # Initial vars
-        self.max_iters = 200_000
-        self.eval_interval = 500
+        self.max_iters = 100_000
+        self.eval_interval = 1000
         self.iter_num = 0
         self.best_val_loss = 1e9
         self.checkpoint = None
@@ -104,7 +103,7 @@ class TrainGPTM:
         ):
             if self.master_process:
                 print(f"Creating directory: {tr_config.checkpoint_output_dir}")
-            os.makedirs(tr_config.checkpoint_output_dir)
+                os.makedirs(tr_config.checkpoint_output_dir)
 
         # Maybe we can remove this outside of the class and pass it as a parameter
         self.model = GPTLM(model_config)
@@ -138,7 +137,7 @@ class TrainGPTM:
             wandb.init(
                 project=tr_config.wandb_project,
                 name=tr_config.wandb_name,
-                config=tr_config.__dict__,
+                config={**tr_config.__dict__, **model_config.__dict__},
             )
             wandb.watch(self.model)
         if tr_config.profile:
@@ -275,6 +274,7 @@ class TrainGPTM:
             {
                 "iter": self.iter_num,
                 "val/loss": val_loss_accum,
+                "val_perplexity": math.exp(val_loss_accum),
                 "lr": self.lr,
                 "time": time.time() - self.time_0,
             }
@@ -339,6 +339,7 @@ class TrainGPTM:
             {
                 "iter": self.iter_num,
                 "train/loss": self.loss_accum.item(),
+                "train_perplexity": math.exp(self.loss_accum.item()),
                 "lr": self.lr,
                 "time": time_elapsed,
                 "tokens_per_sec": tokens_per_sec,
@@ -436,12 +437,11 @@ if __name__ == "__main__":
     tr_config = TrainConfig(
         batch_size=4,
         block_size=1024,
-        eval_iters=200,
         init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
         lr=6e-4,
         min_lr=6e-5,
-        warmup_iters=20_000,
-        lr_decay_iters=200_000,
+        warmup_iters=10_000,
+        lr_decay_iters=100_000,
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',

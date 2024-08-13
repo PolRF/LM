@@ -22,8 +22,9 @@ class ModelConfig:
         "cuda" if torch.cuda.is_available() else "cpu"
     )
     pos_emb: Literal["rope", "alibi"] = "rope"
+    theta: float = 10000.0
     max_seq_len: int = 1024
-    max_batch_size: int = 32
+    max_batch_size: int = 64
 
     # Mixture of Experts
     num_experts: int = 1
@@ -536,6 +537,7 @@ class AttentionBlock(nn.Module):
             self.rope_frequencies = _rope_frequency(
                 config.n_embd // config.n_head,
                 config.block_size,
+                theta=config.theta,
                 device=str(config.device),
             )
 
@@ -644,3 +646,87 @@ class GPTLM(nn.Module):
             # append sampled index to the running sequence
             idx = torch.cat((idx, idx_next), dim=1)  # (B, T+1)
         return idx
+
+
+################### HUGGING FACE ADAPTER ####################
+from dataclasses import fields
+import torch
+from transformers import (
+    PretrainedConfig,
+    PreTrainedModel,
+)
+from typing import Literal
+
+
+class GPTConfig(PretrainedConfig):
+    model_type = "gpt"
+
+    def __init__(
+        self,
+        vocab_size: int = (
+            50304  # --> This is the size of the tiktoken tokenizer for gpt2 model (50257 tokens but 50304 is the nearest multiple of 64)
+        ),
+        block_size: int = 1024,
+        n_embd: int = 768,
+        n_head: int = 12,
+        n_kv_heads: int = 4,
+        n_layer: int = 12,
+        dropout: float = 0.1,
+        device: Literal["cuda", "cpu"] = "cpu",
+        pos_emb: Literal["rope", "alibi"] = "rope",
+        theta: int = 10_000,
+        max_seq_len: int = 1024,
+        max_batch_size: int = 32,
+        # Mixture of Experts
+        num_experts: int = 1,
+        num_experts_per_token: int | None = None,
+        **kwargs,
+    ):
+
+        super().__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.block_size = block_size
+        self.n_embd = n_embd
+        self.n_head = n_head
+        self.n_kv_heads = n_kv_heads
+        self.n_layer = n_layer
+        self.dropout = dropout
+        self.device = device
+        self.pos_emb = pos_emb
+        self.theta = theta
+        self.max_seq_len = max_seq_len
+        self.max_batch_size = max_batch_size
+        self.num_experts = num_experts
+        self.num_experts_per_token = num_experts_per_token
+
+
+def from_gptconfig_to_modelconfig(config: GPTConfig) -> ModelConfig:
+    model_config_fields = {f.name for f in fields(ModelConfig)}
+    model_config_args = {
+        k: v for k, v in config.__dict__.items() if k in model_config_fields
+    }
+    assert len(model_config_args) == len(model_config_fields)
+    model_config_args["device"] = torch.device(config.device)
+    return ModelConfig(**model_config_args)
+
+
+class GPTModel(PreTrainedModel):
+    config_class = GPTConfig
+
+    def __init__(self, model_config: GPTConfig):
+        super().__init__(model_config)
+        # Get the field names of ModelConfig
+        adapted_config = from_gptconfig_to_modelconfig(model_config)
+        self.model = GPTLM(adapted_config)
+
+    def tie_weights(self):
+        self.model.lm_head.weight = self.model.token_embedding.weight
+
+    def forward(self, input_ids, **kwargs):
+        return self.model(input_ids, **kwargs)
+
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        return {"input_ids": input_ids}
+
+    def generate(self, idx, max_new_tokens, *args, **kwargs):
+        return self.model.generate(idx, max_new_tokens)
