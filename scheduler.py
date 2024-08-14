@@ -143,6 +143,9 @@ def scheduler():
                         repo_id=repo_name,
                         run_as_future=False,
                     )
+                break
+            break
+        break
 
 
 if __name__ == "__main__":
