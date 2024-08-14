@@ -87,10 +87,10 @@ def scheduler():
                 ):
                     continue
                 checkpoint_output_dir = (
-                    f"checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
+                    f"./checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
                 )
                 config_output_dir = (
-                    f"configs/{model_class}/seq_len_{seq}/theta_{th}"
+                    f"./configs/{model_class}/seq_len_{seq}/theta_{th}"
                 )
                 # tr_config = TrainConfig(
                 #     batch_size=64,
