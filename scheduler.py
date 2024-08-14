@@ -87,10 +87,10 @@ def scheduler():
                 ):
                     continue
                 checkpoint_output_dir = (
-                    f"./checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
+                    f"checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
                 )
                 config_output_dir = (
-                    f"./configs/{model_class}/seq_len_{seq}/theta_{th}"
+                    f"configs/{model_class}/seq_len_{seq}/theta_{th}"
                 )
                 # tr_config = TrainConfig(
                 #     batch_size=64,
@@ -130,7 +130,7 @@ def scheduler():
                     print("Uploading to Huggingface Hub")
                     # Upload configs
                     upload_file(
-                        path_or_fileobj=config_output_dir,
+                        path_or_fileobj=f"{config_output_dir}/config.json",
                         path_in_repo="configs",
                         repo_id=repo_name,
                         run_as_future=False,
@@ -138,7 +138,7 @@ def scheduler():
 
                     # Upload checkpoints
                     upload_file(
-                        path_or_fileobj=checkpoint_output_dir,
+                        path_or_fileobj=f"{checkpoint_output_dir}/ckpt.pt",
                         path_in_repo="checkpoints",
                         repo_id=repo_name,
                         run_as_future=False,
