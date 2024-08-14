@@ -119,7 +119,6 @@ def scheduler():
                 hf_conf.block_size = seq
                 hf_conf.theta = th
                 if ddp_rank == 0:
-                    print("we are here")
                     hf_conf.save_pretrained(config_output_dir)
 
                 model_config = from_gptconfig_to_modelconfig(hf_conf)
@@ -129,7 +128,7 @@ def scheduler():
                     # Upload configs
                     upload_file(
                         path_or_fileobj=f"{config_output_dir}/config.json",
-                        path_in_repo="configs",
+                        path_in_repo="configs/",
                         repo_id=f"polrf/{repo_name}",
                         run_as_future=True,
                     )
@@ -137,7 +136,7 @@ def scheduler():
                     # Upload checkpoints
                     upload_file(
                         path_or_fileobj=f"{checkpoint_output_dir}/ckpt.pt",
-                        path_in_repo="checkpoints",
+                        path_in_repo="checkpoints/",
                         repo_id=f"polrf/{repo_name}",
                         run_as_future=True,
                     )
