@@ -133,7 +133,7 @@ def scheduler():
                         path_or_fileobj=config_output_dir,
                         path_in_repo="configs",
                         repo_id=repo_name,
-                        run_as_future=True,
+                        run_as_future=False,
                     )
 
                     # Upload checkpoints
@@ -141,7 +141,7 @@ def scheduler():
                         path_or_fileobj=checkpoint_output_dir,
                         path_in_repo="checkpoints",
                         repo_id=repo_name,
-                        run_as_future=True,
+                        run_as_future=False,
                     )
 
 
