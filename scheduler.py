@@ -123,23 +123,23 @@ def scheduler():
 
                 model_config = from_gptconfig_to_modelconfig(hf_conf)
                 TrainGPTM(tr_config, model_config).train()
-                if ddp_rank == 0:
-                    print("Uploading to Huggingface Hub")
-                    # Upload configs
-                    upload_file(
-                        path_or_fileobj=f"{config_output_dir}/config.json",
-                        path_in_repo="configs/",
-                        repo_id=f"polrf/{repo_name}",
-                        run_as_future=True,
-                    )
+                # if ddp_rank == 0:
+                #     print("Uploading to Huggingface Hub")
+                #     # Upload configs
+                #     upload_file(
+                #         path_or_fileobj=f"{config_output_dir}/config.json",
+                #         path_in_repo="configs/",
+                #         repo_id=f"polrf/{repo_name}",
+                #         run_as_future=True,
+                #     )
 
-                    # Upload checkpoints
-                    upload_file(
-                        path_or_fileobj=f"{checkpoint_output_dir}/ckpt.pt",
-                        path_in_repo="checkpoints/",
-                        repo_id=f"polrf/{repo_name}",
-                        run_as_future=True,
-                    )
+                #     # Upload checkpoints
+                #     upload_file(
+                #         path_or_fileobj=f"{checkpoint_output_dir}/ckpt.pt",
+                #         path_in_repo="checkpoints/",
+                #         repo_id=f"polrf/{repo_name}",
+                #         run_as_future=True,
+                #     )
 
 
 if __name__ == "__main__":
