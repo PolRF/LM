@@ -108,7 +108,7 @@ def scheduler():
                     compile=True,
                     grad_clip=1.0,
                     profile=False,
-                    wandb_name=repo_name,
+                    wandb_name=f"{repo_name}_seq_{seq}_theta_{th}",
                 )
                 hf_conf = get_config_from_model_class(model_class)
                 hf_conf.max_seq_len = seq
