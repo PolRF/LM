@@ -132,7 +132,7 @@ def scheduler():
                     upload_file(
                         path_or_fileobj=f"{config_output_dir}/config.json",
                         path_in_repo="configs",
-                        repo_id=repo_name,
+                        repo_id=f"polrf/{repo_name}",
                         run_as_future=False,
                     )
 
@@ -140,7 +140,7 @@ def scheduler():
                     upload_file(
                         path_or_fileobj=f"{checkpoint_output_dir}/ckpt.pt",
                         path_in_repo="checkpoints",
-                        repo_id=repo_name,
+                        repo_id=f"polrf/{repo_name}",
                         run_as_future=False,
                     )
                 break
