@@ -1,6 +1,7 @@
 ## Create a scheduler function to trigger different trainings based on hyperparam modification
 
 
+import os
 import torch
 from typing import List, Literal
 from model import GPTConfig, from_gptconfig_to_modelconfig
@@ -70,9 +71,11 @@ def scheduler():
         "gpt-medium",  # 345M
         "gpt-xl",  # 1.5B
     ]
+    ddp_rank = int(os.environ["RANK"])
     for model_class in models:
         repo_name = f"GQA-{model_class}-RoPE"
-        create_repo(repo_name, private=True)
+        if ddp_rank == 0:
+            create_repo(repo_name, private=True, exist_ok=True)
         for seq in seq_len:
             for th in theta:
                 checkpoint_output_dir = (
@@ -108,26 +111,28 @@ def scheduler():
                 hf_conf.max_seq_len = seq
                 hf_conf.block_size = seq
                 hf_conf.theta = th
-                hf_conf.save_pretrained(config_output_dir)
+                if ddp_rank == 0:
+                    hf_conf.save_pretrained(config_output_dir)
 
                 model_config = from_gptconfig_to_modelconfig(hf_conf)
                 TrainGPTM(tr_config, model_config).train()
 
-                # Upload configs
-                upload_file(
-                    path_or_fileobj=config_output_dir,
-                    path_in_repo="configs",
-                    repo_id=repo_name,
-                    run_as_future=True,
-                )
+                if ddp_rank == 0:
+                    # Upload configs
+                    upload_file(
+                        path_or_fileobj=config_output_dir,
+                        path_in_repo="configs",
+                        repo_id=repo_name,
+                        run_as_future=True,
+                    )
 
-                # Upload checkpoints
-                upload_file(
-                    path_or_fileobj=checkpoint_output_dir,
-                    path_in_repo="checkpoints",
-                    repo_id=repo_name,
-                    run_as_future=True,
-                )
+                    # Upload checkpoints
+                    upload_file(
+                        path_or_fileobj=checkpoint_output_dir,
+                        path_in_repo="checkpoints",
+                        repo_id=repo_name,
+                        run_as_future=True,
+                    )
 
 
 if __name__ == "__main__":
