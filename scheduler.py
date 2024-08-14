@@ -75,6 +75,9 @@ def scheduler():
         create_repo(repo_name, private=True)
         for seq in seq_len:
             for th in theta:
+                print(
+                    f"Training {model_class} with seq_len {seq} and theta {th}"
+                )
                 checkpoint_output_dir = (
                     f"checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
                 )
