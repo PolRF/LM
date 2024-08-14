@@ -72,6 +72,7 @@ def scheduler():
     ]
     for model_class in models:
         repo_name = f"GQA-{model_class}-RoPE"
+        print(f"Creating repo {repo_name}")
         create_repo(repo_name, private=True)
         for seq in seq_len:
             for th in theta:
