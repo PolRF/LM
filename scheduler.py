@@ -79,7 +79,11 @@ def scheduler():
         for seq in seq_len:
             for th in theta:
                 # Already trained
-                if seq == 1024 and th == 10_000 and model_class == "gpt-small":
+                if (
+                    seq == 1024
+                    and th in [10_000, 100_000]
+                    and model_class == "gpt-small"
+                ):
                     continue
                 checkpoint_output_dir = (
                     f"checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
