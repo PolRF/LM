@@ -81,7 +81,7 @@ def scheduler():
                 # Already trained
                 if (
                     seq == 1024
-                    and th in [10_000, 100_000]
+                    and th in [10_000]
                     and model_class == "gpt-small"
                 ):
                     continue
@@ -91,29 +91,29 @@ def scheduler():
                 config_output_dir = (
                     f"configs/{model_class}/seq_len_{seq}/theta_{th}"
                 )
-                tr_config = TrainConfig(
-                    batch_size=64,
-                    block_size=seq,
-                    init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
-                    lr=6e-4,
-                    min_lr=6e-5,
-                    warmup_iters=10_000,
-                    lr_decay_iters=100_000,
-                    weight_decay=1e-1,
-                    device=torch.device(
-                        "cuda" if torch.cuda.is_available() else "cpu"
-                    ),
-                    # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-                    gradient_accumulation_steps=1,
-                    loading_mode="from_scratch",
-                    checkpoint_output_dir=checkpoint_output_dir,
-                    always_save_checkpoint=False,
-                    ddp=True,
-                    compile=True,
-                    grad_clip=1.0,
-                    profile=False,
-                    wandb_name=f"{repo_name}_seq_{seq}_theta_{th}",
-                )
+                # tr_config = TrainConfig(
+                #     batch_size=64,
+                #     block_size=seq,
+                #     init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
+                #     lr=6e-4,
+                #     min_lr=6e-5,
+                #     warmup_iters=10_000,
+                #     lr_decay_iters=100_000,
+                #     weight_decay=1e-1,
+                #     device=torch.device(
+                #         "cuda" if torch.cuda.is_available() else "cpu"
+                #     ),
+                #     # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
+                #     gradient_accumulation_steps=1,
+                #     loading_mode="from_scratch",
+                #     checkpoint_output_dir=checkpoint_output_dir,
+                #     always_save_checkpoint=False,
+                #     ddp=True,
+                #     compile=True,
+                #     grad_clip=1.0,
+                #     profile=False,
+                #     wandb_name=f"{repo_name}_seq_{seq}_theta_{th}",
+                # )
                 hf_conf = get_config_from_model_class(model_class)
                 hf_conf.max_seq_len = seq
                 hf_conf.block_size = seq
@@ -122,7 +122,7 @@ def scheduler():
                     hf_conf.save_pretrained(config_output_dir)
 
                 model_config = from_gptconfig_to_modelconfig(hf_conf)
-                TrainGPTM(tr_config, model_config).train()
+                # TrainGPTM(tr_config, model_config).train()
 
                 if ddp_rank == 0:
                     # Upload configs
