@@ -120,12 +120,14 @@ def scheduler():
                 hf_conf.block_size = seq
                 hf_conf.theta = th
                 if ddp_rank == 0:
+                    print("we are here")
                     hf_conf.save_pretrained(config_output_dir)
 
                 model_config = from_gptconfig_to_modelconfig(hf_conf)
                 # TrainGPTM(tr_config, model_config).train()
 
                 if ddp_rank == 0:
+                    print("Uploading to Huggingface Hub")
                     # Upload configs
                     upload_file(
                         path_or_fileobj=config_output_dir,
