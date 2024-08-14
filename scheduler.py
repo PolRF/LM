@@ -72,6 +72,7 @@ def scheduler():
         "gpt-xl",  # 1.5B
     ]
     ddp_rank = int(os.environ["RANK"])
+    print("ddp_rank", ddp_rank)
     for model_class in models:
         repo_name = f"GQA-{model_class}-RoPE"
         if ddp_rank == 0:
