@@ -8,6 +8,8 @@ from model import GPTConfig, from_gptconfig_to_modelconfig
 from train import TrainConfig, TrainGPTM
 from huggingface_hub import create_repo, upload_file
 
+from torch.distributed import init_process_group, destroy_process_group
+
 
 def get_config_from_model_class(
     model_class: Literal["gpt-small", "gpt-medium", "gpt-xl"]
@@ -125,7 +127,7 @@ def scheduler():
 
                 model_config = from_gptconfig_to_modelconfig(hf_conf)
                 # TrainGPTM(tr_config, model_config).train()
-
+                destroy_process_group()
                 if ddp_rank == 0:
                     print("Uploading to Huggingface Hub")
                     # Upload configs
@@ -133,7 +135,7 @@ def scheduler():
                         path_or_fileobj=f"{config_output_dir}/config.json",
                         path_in_repo="configs",
                         repo_id=f"polrf/{repo_name}",
-                        run_as_future=False,
+                        run_as_future=True,
                     )
 
                     # Upload checkpoints
@@ -141,7 +143,7 @@ def scheduler():
                         path_or_fileobj=f"{checkpoint_output_dir}/ckpt.pt",
                         path_in_repo="checkpoints",
                         repo_id=f"polrf/{repo_name}",
-                        run_as_future=False,
+                        run_as_future=True,
                     )
                 break
             break
