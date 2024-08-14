@@ -24,9 +24,9 @@ def get_config_from_model_class(
     match model_class:
         case "gpt-small":
             return GPTConfig(
-                n_embd=769,
+                n_embd=768,
                 n_layer=12,
-                n_head=12,
+                n_head=16,
                 n_kv_heads=4,
                 **shared_config,
             )
@@ -42,7 +42,7 @@ def get_config_from_model_class(
             return GPTConfig(
                 n_embd=2048,
                 n_layer=24,
-                n_head=16,
+                n_head=32,
                 n_kv_heads=8,
                 **shared_config,
             )
@@ -78,6 +78,9 @@ def scheduler():
             create_repo(repo_name, private=True, exist_ok=True)
         for seq in seq_len:
             for th in theta:
+                # Already trained
+                if seq == 1024 and th == 10_000 and model_class == "gpt-small":
+                    continue
                 checkpoint_output_dir = (
                     f"checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
                 )
