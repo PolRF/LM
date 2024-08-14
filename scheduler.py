@@ -128,7 +128,6 @@ def scheduler():
 
                 model_config = from_gptconfig_to_modelconfig(hf_conf)
                 # TrainGPTM(tr_config, model_config).train()
-                destroy_process_group()
                 if ddp_rank == 0:
                     print("Uploading to Huggingface Hub")
                     # Upload configs
@@ -146,7 +145,8 @@ def scheduler():
                         repo_id=f"polrf/{repo_name}",
                         run_as_future=True,
                     )
-                break
+                destroy_process_group()
+
             break
         break
 
