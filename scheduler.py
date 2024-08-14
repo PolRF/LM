@@ -81,6 +81,7 @@ def scheduler():
             create_repo(repo_name, private=True, exist_ok=True)
         for seq in seq_len:
             for th in theta:
+                init_process_group(backend="nccl")
                 # Already trained
                 if (
                     seq == 1024
