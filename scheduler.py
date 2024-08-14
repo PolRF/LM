@@ -72,7 +72,6 @@ def scheduler():
         "gpt-xl",  # 1.5B
     ]
     ddp_rank = int(os.environ["RANK"])
-    print("ddp_rank", ddp_rank)
     for model_class in models:
         repo_name = f"GQA-{model_class}-RoPE"
         if ddp_rank == 0:
@@ -82,7 +81,7 @@ def scheduler():
                 # Already trained
                 if (
                     seq == 1024
-                    and th in [10_000]
+                    and th in [10_000, 100_000]
                     and model_class == "gpt-small"
                 ):
                     continue
@@ -142,9 +141,6 @@ def scheduler():
                         repo_id=f"polrf/{repo_name}",
                         run_as_future=True,
                     )
-
-            break
-        break
 
 
 if __name__ == "__main__":
