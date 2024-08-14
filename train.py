@@ -350,45 +350,45 @@ class TrainGPTM:
         )
 
     def train(self):
-        for i in range(self.max_iters - self.iter_num):
-            self.iter_num += 1
-            if self.tr_config.profile:
-                assert self.profiler
-                self.profiler.step()
-            self.time_0 = time.time()
-            self.lr = self._get_current_lr()
-            for param_group in self.optimizer.param_groups:
-                param_group["lr"] = self.lr
-            # every once in a while evaluate the loss on train and val sets
-            if (
-                self.iter_num % self.eval_interval == 0
-                or self.iter_num == self.max_iters - 1
-            ):
-                self.model.eval()
-                self._validate_and_save_checkpoint()
+        # for i in range(self.max_iters - self.iter_num):
+        #     self.iter_num += 1
+        #     if self.tr_config.profile:
+        #         assert self.profiler
+        #         self.profiler.step()
+        #     self.time_0 = time.time()
+        #     self.lr = self._get_current_lr()
+        #     for param_group in self.optimizer.param_groups:
+        #         param_group["lr"] = self.lr
+        #     # every once in a while evaluate the loss on train and val sets
+        #     if (
+        #         self.iter_num % self.eval_interval == 0
+        #         or self.iter_num == self.max_iters - 1
+        #     ):
+        #         self.model.eval()
+        #         self._validate_and_save_checkpoint()
 
-            self.model.train()
-            # TODO: compare optimizer.zero_grad(set_to_none=True) vs.
-            # for param in model.parameters():
-            #     param.grad = None
-            self.optimizer.zero_grad(set_to_none=True)
-            self._microstep_training()
-            # This is done in case there is a bad batch that causes the gradients to explode.
-            norm = torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(), self.tr_config.grad_clip
-            )
-            self.optimizer.step()
-            # Wait for the GPU to finish
-            torch.cuda.synchronize()
-            if self.master_process:
-                self._log_iteration()
+        #     self.model.train()
+        #     # TODO: compare optimizer.zero_grad(set_to_none=True) vs.
+        #     # for param in model.parameters():
+        #     #     param.grad = None
+        #     self.optimizer.zero_grad(set_to_none=True)
+        #     self._microstep_training()
+        #     # This is done in case there is a bad batch that causes the gradients to explode.
+        #     norm = torch.nn.utils.clip_grad_norm_(
+        #         self.model.parameters(), self.tr_config.grad_clip
+        #     )
+        #     self.optimizer.step()
+        #     # Wait for the GPU to finish
+        #     torch.cuda.synchronize()
+        #     if self.master_process:
+        #         self._log_iteration()
 
-            if self.tr_config.profile and self.iter_num % 10 == 0:
-                assert self.profiler
-                assert self.profile_dir
-                self.profiler.stop()
-                self.profiler.export_chrome_trace(self.profile_dir)
-                break
+        #     if self.tr_config.profile and self.iter_num % 10 == 0:
+        #         assert self.profiler
+        #         assert self.profile_dir
+        #         self.profiler.stop()
+        #         self.profiler.export_chrome_trace(self.profile_dir)
+        #         break
         if self.tr_config.ddp:
             destroy_process_group()
 
