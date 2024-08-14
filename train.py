@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 import math
+import random
 import time
 from typing import Literal
 import tiktoken
@@ -61,6 +62,7 @@ class Dataset(Enum):
 
 class TrainGPTM:
     def __init__(self, tr_config: TrainConfig, model_config: ModelConfig):
+        os.environ["MASTER_PORT"] = str(random.randint(10000, 20000))
         self.tr_config = tr_config
         self.model_config = model_config
         # Initial cuda config
