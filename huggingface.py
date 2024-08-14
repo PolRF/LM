@@ -1,6 +1,8 @@
 import torch
 from loaders.model_loader import remove_prefix
 from model import GPTConfig, GPTModel
+import tiktoken
+from transformers import AutoModelForCausalLM, AutoConfig
 
 
 def push_pytorch_checkpoints_to_hf(checkpoint_path, huggingface_repo):
@@ -37,3 +39,18 @@ def push_pytorch_checkpoints_to_hf(checkpoint_path, huggingface_repo):
     # Manually tie the weights
     model.tie_weights()
     model.push_to_hub(huggingface_repo, safe_serialization=False)
+
+
+def test_generation():
+    model = GPTModel.from_pretrained(
+        "polrf/GQA-RoPE-MoE-500M", trust_remote_code=True
+    )
+    model.eval()
+    print("Model loaded")
+    enc = tiktoken.get_encoding("gpt2")
+    context = "I'm a large language model, "
+    context = enc.encode_ordinary(context)
+    context = torch.tensor(context, dtype=torch.long).unsqueeze(0)
+    context = context.to("cpu")
+    out = model.generate(context, 100)
+    print(enc.decode(out[0].cpu().numpy()))
