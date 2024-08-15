@@ -92,7 +92,7 @@ def scheduler():
                     f"./configs/{model_class}/seq_len_{seq}/theta_{th}"
                 )
                 tr_config = TrainConfig(
-                    batch_size=16,
+                    batch_size=8,
                     block_size=seq,
                     init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
                     lr=6e-4,
@@ -104,7 +104,7 @@ def scheduler():
                         "cuda" if torch.cuda.is_available() else "cpu"
                     ),
                     # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-                    gradient_accumulation_steps=4,
+                    gradient_accumulation_steps=8,
                     loading_mode="from_scratch",
                     checkpoint_output_dir=checkpoint_output_dir,
                     always_save_checkpoint=False,
