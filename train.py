@@ -62,7 +62,6 @@ class Dataset(Enum):
 
 class TrainGPTM:
     def __init__(self, tr_config: TrainConfig, model_config: ModelConfig):
-        os.environ["MASTER_PORT"] = str(random.randint(10000, 20000))
         self.tr_config = tr_config
         self.model_config = model_config
         # Initial cuda config
