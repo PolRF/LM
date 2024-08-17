@@ -87,7 +87,7 @@ def scheduler():
                     continue
                 if (
                     seq == 8192
-                    and th in [10_000]
+                    and th in [10_000, 100_000]
                     and model_class == "gpt-small"
                 ):
                     continue
