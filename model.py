@@ -660,6 +660,7 @@ from typing import Literal
 
 class GPTConfig(PretrainedConfig):
     model_type = "gpt"
+    tokenizer_class = "gpt-2"
 
     def __init__(
         self,
@@ -727,6 +728,3 @@ class GPTModel(PreTrainedModel):
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {"input_ids": input_ids}
-
-    def generate(self, idx, max_new_tokens, *args, **kwargs):
-        return self.model.generate(idx, max_new_tokens)

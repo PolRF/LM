@@ -85,6 +85,12 @@ def scheduler():
                     and model_class == "gpt-small"
                 ):
                     continue
+                if (
+                    seq == 8192
+                    and th in [10_000]
+                    and model_class == "gpt-small"
+                ):
+                    continue
                 checkpoint_output_dir = (
                     f"./checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
                 )

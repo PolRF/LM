@@ -40,14 +40,12 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement Mixture of Experts 500M params
 - [x] Train a model with 2.3B (GPT-XL)
 - [x] Integrate with hugging face AutoConfig and AutoModel
-- [ ] Compare MoE with GPT-2 (same size)
+- [x] Implement multiple Rope theta values for different sequence lengths and see how it affects the model
+- [ ] Compare MoE with GPT (same size)
 - [ ] Implement Swiglu
 - [ ] Change gpt2 tokenizer to Llama 3.1 tokenizer
 - [ ] Extend context of a trained model to 128K through LongRope and finetuning if needed (https://arxiv.org/pdf/2402.13753)
 - [ ] Mamba
-- [ ] Mistral 7B
-- [ ] Mixtral 8x7B
-- [ ] Llama 2 8B
 - [ ] Jamba
 - [ ] Implement SAMBA
 - [ ] Implement the Transformer-XL
@@ -60,7 +58,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
 - [ ] Submit LLM to hugging face open llm leaderboard https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
-- [ ] Implement multiple Rope theta values for different sequence lengths and see how it affects the model
 
 ### Fine-tuning improvements:
 
