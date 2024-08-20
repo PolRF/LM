@@ -248,7 +248,7 @@ class TrainGPTM:
         )
 
     @torch.no_grad()
-    def _estimate_loss(self):
+    def _estimate_val_loss(self):
         val_loss_accum = 0.0
         val_loss_steps = 20
         for _ in range(val_loss_steps):
@@ -265,11 +265,9 @@ class TrainGPTM:
 
     def _validate_and_save_checkpoint(self):
         self.val_loader.reset()
-        val_loss_accum = self._estimate_loss()
+        val_loss_accum = self._estimate_val_loss()
         if self.tr_config.ddp:
             dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
-        if not self.master_process:
-            return
         val_loss_accum = val_loss_accum.item()  # type: ignore
         wandb.log(
             {
@@ -289,7 +287,6 @@ class TrainGPTM:
         ):
             self.best_val_loss = val_loss_accum
             if self.iter_num > 0:
-                # TODO: Type this
                 checkpoint = {
                     "model": self.model.state_dict(),
                     "optimizer": self.optimizer.state_dict(),
@@ -350,6 +347,31 @@ class TrainGPTM:
             f"step {self.iter_num}: train loss {self.loss_accum.item():.4f}, time (s): {time_elapsed:.4f}, lr: {self.lr:.7f}, tok/sec: {tokens_per_sec:.2f}"
         )
 
+    def _evaluate_hellaswag(self):
+        num_correct_norm = 0
+        num_total = 0
+        for i, example in enumerate(iterate_examples("val")):
+            # render the example into tokens and labels
+            _, tokens, mask, label = render_example(example)
+            tokens = tokens.to("cuda")
+            mask = mask.to("cuda")
+            # get the logits
+            with torch.no_grad():
+                with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                    logits, loss = self.model(tokens)
+                pred_norm = get_most_likely_row(tokens, mask, logits)
+            num_total += 1
+            num_correct_norm += int(pred_norm == label)
+
+        acc_norm = num_correct_norm / num_total
+
+        wandb.log(
+            {
+                "iter": self.iter_num,
+                "hellaswag_eval": acc_norm,
+            }
+        )
+
     def train(self):
         for i in range(self.max_iters - self.iter_num):
             self.iter_num += 1
@@ -364,7 +386,7 @@ class TrainGPTM:
             if (
                 self.iter_num % self.eval_interval == 0
                 or self.iter_num == self.max_iters - 1
-            ):
+            ) and self.master_process:
                 self.model.eval()
                 self._validate_and_save_checkpoint()
 
