@@ -87,7 +87,7 @@ def scheduler():
                     continue
                 if (
                     seq == 8192
-                    and th in [10_000, 100_000]
+                    and th in [10_000, 100_000, 500_000]
                     and model_class == "gpt-small"
                 ):
                     continue
@@ -100,7 +100,7 @@ def scheduler():
                 tr_config = TrainConfig(
                     batch_size=8,
                     block_size=seq,
-                    init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
+                    init_lr=6e-4,  # for lr decay
                     lr=6e-4,
                     min_lr=6e-5,
                     warmup_iters=10_000,

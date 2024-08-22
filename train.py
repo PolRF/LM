@@ -69,7 +69,7 @@ class TrainGPTM:
         torch.set_float32_matmul_precision("high")
 
         # Initial vars
-        self.max_iters = 100_000
+        self.max_iters = 54_500
         self.eval_interval = 1000
         self.iter_num = 0
         self.best_val_loss = 1e9
@@ -438,7 +438,7 @@ if __name__ == "__main__":
     tr_config = TrainConfig(
         batch_size=4,
         block_size=1024,
-        init_lr=6e-4,  # for lr decay (TODO need a lower lr????)
+        init_lr=6e-4,  # for lr decay
         lr=6e-4,
         min_lr=6e-5,
         warmup_iters=10_000,
