@@ -59,17 +59,18 @@ def scheduler():
         100_000,
         500_000,
         2_000_000,
+        10_000_000,
     ]
     models: List[
         Literal[
             "gpt-small",
             "gpt-medium",
-            "gpt-xl",
+            # "gpt-xl",
         ]
     ] = [
         "gpt-small",  # 117M
         "gpt-medium",  # 345M
-        "gpt-xl",  # 1.5B
+        # "gpt-xl",  # 1.5B
     ]
     ddp_rank = int(os.environ["RANK"])
     for model_class in models:
@@ -81,13 +82,13 @@ def scheduler():
                 # Already trained
                 if (
                     seq == 1024
-                    and th in [10_000, 100_000, 500_000, 2_000_000]
+                    and th in [10_000, 100_000, 500_000, 2_000_000, 10_000_000]
                     and model_class == "gpt-small"
                 ):
                     continue
                 if (
                     seq == 8192
-                    and th in [10_000, 100_000, 500_000]
+                    and th in [10_000, 100_000, 500_000, 2_000_000]
                     and model_class == "gpt-small"
                 ):
                     continue
