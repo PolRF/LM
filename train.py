@@ -69,8 +69,8 @@ class TrainGPTM:
         torch.set_float32_matmul_precision("high")
 
         # Initial vars
-        self.max_iters = 225_000
-        self.eval_interval = 500
+        self.max_iters = 54_500
+        self.eval_interval = 1000
         self.iter_num = 0
         self.best_val_loss = 1e9
         self.checkpoint = None
@@ -436,17 +436,17 @@ if __name__ == "__main__":
     os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     tr_config = TrainConfig(
-        batch_size=16,
+        batch_size=4,
         block_size=1024,
         init_lr=6e-4,  # for lr decay
         lr=6e-4,
         min_lr=6e-5,
-        warmup_iters=20_000,
-        lr_decay_iters=220_000,
+        warmup_iters=10_000,
+        lr_decay_iters=100_000,
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=16,
         loading_mode="from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
@@ -454,17 +454,17 @@ if __name__ == "__main__":
         compile=True,
         grad_clip=1.0,
         profile=False,
-        wandb_name="GPT-500M",
+        wandb_name="gpt2-GPT-XL",
     )
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=1024,
-        n_embd=768,
-        n_layer=12,
+        n_embd=2560,
+        n_layer=32,
         device=tr_config.device,
-        dropout=0.1,
-        n_head=16,
-        n_kv_heads=4,
+        dropout=0.0,
+        n_head=32,
+        n_kv_heads=8,
         pos_emb="rope",
         num_experts=1,
         num_experts_per_token=None,
