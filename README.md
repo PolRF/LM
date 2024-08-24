@@ -41,6 +41,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Train a model with 2.3B (GPT-XL)
 - [x] Integrate with hugging face AutoConfig and AutoModel
 - [x] Implement multiple Rope theta values for different sequence lengths and see how it affects the model
+- [ ] Improve RoPE implementation using triton
 - [ ] Compare MoE with GPT (same size)
 - [ ] Implement Swiglu
 - [ ] Change gpt2 tokenizer to Llama 3.1 tokenizer
