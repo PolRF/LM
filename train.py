@@ -69,8 +69,8 @@ class TrainGPTM:
         torch.set_float32_matmul_precision("high")
 
         # Initial vars
-        self.max_iters = 54_500
-        self.eval_interval = 1000
+        self.max_iters = 225_000
+        self.eval_interval = 500
         self.iter_num = 0
         self.best_val_loss = 1e9
         self.checkpoint = None
@@ -441,8 +441,8 @@ if __name__ == "__main__":
         init_lr=6e-4,  # for lr decay
         lr=6e-4,
         min_lr=6e-5,
-        warmup_iters=10_000,
-        lr_decay_iters=100_000,
+        warmup_iters=20_000,
+        lr_decay_iters=220_000,
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
@@ -454,17 +454,17 @@ if __name__ == "__main__":
         compile=True,
         grad_clip=1.0,
         profile=False,
-        wandb_name="gpt2-GPT-XL",
+        wandb_name="GPT-500M",
     )
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=1024,
-        n_embd=2560,
-        n_layer=32,
+        n_embd=768,
+        n_layer=12,
         device=tr_config.device,
-        dropout=0.0,
-        n_head=32,
-        n_kv_heads=8,
+        dropout=0.1,
+        n_head=16,
+        n_kv_heads=4,
         pos_emb="rope",
         num_experts=1,
         num_experts_per_token=None,
