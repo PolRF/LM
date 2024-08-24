@@ -51,8 +51,9 @@ def get_config_from_model_class(
 def scheduler():
     seq_len = [
         1024,
+        4096,
         8192,
-        32_768,
+        # 32_768,
     ]
     theta = [
         10_000,
@@ -64,12 +65,12 @@ def scheduler():
     models: List[
         Literal[
             "gpt-small",
-            "gpt-medium",
+            # "gpt-medium",
             # "gpt-xl",
         ]
     ] = [
         "gpt-small",  # 117M
-        "gpt-medium",  # 345M
+        # "gpt-medium",  # 345M
         # "gpt-xl",  # 1.5B
     ]
     ddp_rank = int(os.environ["RANK"])
