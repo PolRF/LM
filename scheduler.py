@@ -89,7 +89,7 @@ def scheduler():
                     continue
                 if (
                     seq == 8192
-                    and th in [10_000, 100_000, 500_000, 2_000_000]
+                    and th in [10_000, 100_000, 500_000, 2_000_000, 10_000_000]
                     and model_class == "gpt-small"
                 ):
                     continue
@@ -100,7 +100,7 @@ def scheduler():
                     f"./configs/{model_class}/seq_len_{seq}/theta_{th}"
                 )
                 tr_config = TrainConfig(
-                    batch_size=8,
+                    batch_size=32,
                     block_size=seq,
                     init_lr=6e-4,  # for lr decay
                     lr=6e-4,
@@ -112,7 +112,7 @@ def scheduler():
                         "cuda" if torch.cuda.is_available() else "cpu"
                     ),
                     # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-                    gradient_accumulation_steps=8,
+                    gradient_accumulation_steps=2,
                     loading_mode="from_scratch",
                     checkpoint_output_dir=checkpoint_output_dir,
                     always_save_checkpoint=False,
