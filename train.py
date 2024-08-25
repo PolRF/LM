@@ -69,7 +69,7 @@ class TrainGPTM:
         torch.set_float32_matmul_precision("high")
 
         # Initial vars
-        self.max_iters = 54_500
+        self.max_iters = 50_000
         self.eval_interval = 1000
         self.iter_num = 0
         self.best_val_loss = 1e9
