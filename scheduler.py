@@ -50,9 +50,9 @@ def get_config_from_model_class(
 
 def scheduler():
     seq_len = [
-        1024,
+        # 1024,
         4096,
-        8192,
+        # 8192,
         # 32_768,
     ]
     theta = [
@@ -82,17 +82,12 @@ def scheduler():
             for th in theta:
                 # Already trained
                 if (
-                    seq == 1024
-                    and th in [10_000, 100_000, 500_000, 2_000_000, 10_000_000]
+                    seq == 4096
+                    and th in [10_000]
                     and model_class == "gpt-small"
                 ):
                     continue
-                if (
-                    seq == 8192
-                    and th in [10_000, 100_000, 500_000, 2_000_000, 10_000_000]
-                    and model_class == "gpt-small"
-                ):
-                    continue
+
                 checkpoint_output_dir = (
                     f"./checkpoints/{model_class}/seq_len_{seq}/theta_{th}"
                 )
