@@ -22,10 +22,6 @@ lm-eval = "^0.4.3"
 autoflake = "^2.3.1"
 tensorboard = "^2.16.2"
 
-
-[tool.poetry.group.linux.dependencies]
-triton = "^3.0.0"
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
