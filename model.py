@@ -80,33 +80,64 @@ def _rope_frequency(
 
 
 def apply_rope(
-    q: torch.Tensor, k: torch.Tensor, freqs_complex: torch.Tensor, device: str
+    q: torch.Tensor,
+    k: torch.Tensor,
+    freqs_cos: torch.Tensor,
+    freqs_sin: torch.Tensor,
+    device: str,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Apply the rotary position embedding to the input tensor.
     """
-    # Reshape the input tensor to a complex tensor
-    # (B, Seq_Len, Head_Dim) -> (B, Seq_Len, Head_Dim/2, 2)
-    # x.shape[:-1] is the batch and the sequence length (get the first two dimensions of the tensor)
-    # -1 is used as a placeholder that will automatically be calculated based on the size of the tensor and the remaining dimensions
-    # 2 is the last dimension of the tensor. We will get a vector with size 2 for each element in the tensor
-    # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
-    # will be used as the real and imaginary part of the complex number
-    q_complex = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2))
-    k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
+    # # Reshape the input tensor to a complex tensor
+    # # (B, Seq_Len, Head_Dim) -> (B, Seq_Len, Head_Dim/2, 2)
+    # # x.shape[:-1] is the batch and the sequence length (get the first two dimensions of the tensor)
+    # # -1 is used as a placeholder that will automatically be calculated based on the size of the tensor and the remaining dimensions
+    # # 2 is the last dimension of the tensor. We will get a vector with size 2 for each element in the tensor
+    # # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
+    # # will be used as the real and imaginary part of the complex number
+    # q_complex = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2))
+    # k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
 
-    # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
-    # Final shape will be (B, Seq_Len, H, Head_Dim/2)
-    q_rotated = q_complex * freqs_complex
-    k_rotated = k_complex * freqs_complex
+    # # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
+    # # Final shape will be (B, Seq_Len, H, Head_Dim/2)
+    # q_rotated = q_complex * freqs_complex
+    # k_rotated = k_complex * freqs_complex
 
-    # Convert again to real tensor
-    q_out = torch.view_as_real(q_rotated)
-    k_out = torch.view_as_real(k_rotated)
-    # Reshape the tensor to the original shape
-    # (B, Seq_Len, H, Head_Dim/2, 2) -> (B, Seq_Len, H, Head_Dim)
-    q_out = q_out.reshape(*q.shape)
-    k_out = k_out.reshape(*k.shape)
+    # # Convert again to real tensor
+    # q_out = torch.view_as_real(q_rotated)
+    # k_out = torch.view_as_real(k_rotated)
+    # # Reshape the tensor to the original shape
+    # # (B, Seq_Len, H, Head_Dim/2, 2) -> (B, Seq_Len, H, Head_Dim)
+    # q_out = q_out.reshape(*q.shape)
+    # k_out = k_out.reshape(*k.shape)
+    # # Convert the tensor to the original type and move it to the original device
+    # return q_out.type_as(q).to(device), k_out.type_as(k).to(device)
+
+    # Extract dimensions
+    batch_size, seq_len, n_heads, head_dim = q.shape
+    assert head_dim % 2 == 0, "Head dimension must be even"
+    cos, sin = freqs_cos, freqs_sin
+    # Reshape q and k to separate the last dimension into two halves
+    q_reshaped = q.view(batch_size, seq_len, n_heads, 2, -1)
+    k_reshaped = k.view(batch_size, seq_len, n_heads, 2, -1)
+
+    # Extract even and odd indices
+    q_even, q_odd = q_reshaped[:, :, :, 0], q_reshaped[:, :, :, 1]
+    k_even, k_odd = k_reshaped[:, :, :, 0], k_reshaped[:, :, :, 1]
+
+    # Compute cosine and sine
+
+    # Apply rotation
+    q_out_even = q_even * cos - q_odd * sin
+    q_out_odd = q_odd * cos + q_even * sin
+    k_out_even = k_even * cos - k_odd * sin
+    k_out_odd = k_odd * cos + k_even * sin
+
+    # Concatenate even and odd parts
+    q_out = torch.stack([q_out_even, q_out_odd], dim=3).view(*q.shape)
+    k_out = torch.stack([k_out_even, k_out_odd], dim=3).view(*k.shape)
+
     # Convert the tensor to the original type and move it to the original device
     return q_out.type_as(q).to(device), k_out.type_as(k).to(device)
 
@@ -267,7 +298,8 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        rope_freqs: torch.Tensor,
+        rope_cos: torch.Tensor,
+        rope_sin: torch.Tensor,
         start_position: int = 0,
     ):
         B, T, C = x.shape
@@ -279,7 +311,7 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
         v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
 
         with torch.autocast(enabled=False, device_type=str("cuda")):
-            q, k = apply_rope(q, k, rope_freqs, str(x.device))
+            q, k = apply_rope(q, k, rope_cos, rope_sin, str(x.device))
 
         # Cache the keys and values:
         # self.cache_k[:B, start_position : start_position + T] = k
@@ -534,12 +566,14 @@ class AttentionBlock(nn.Module):
         # RoPE
         # We need to initialize the frequency tensor for the rotary position embedding
         if self.use_rope:
-            self.rope_frequencies = _rope_frequency(
+            rope_frequencies = _rope_frequency(
                 config.n_embd // config.n_head,
                 config.block_size,
                 theta=config.theta,
                 device=str(config.device),
             )
+            self.rope_cos = rope_frequencies.cos()
+            self.rope_sin = rope_frequencies.sin()
 
     def forward(self, x: torch.Tensor, start_pos: int):
         B, Seq_len, C = x.shape
@@ -547,8 +581,9 @@ class AttentionBlock(nn.Module):
         # This is a modification from original paper Attention is All You Need
         # (a better implementation)
         if self.use_rope:
-            rope_freqs = self.rope_frequencies[0:Seq_len]
-            x = x + self.attn(self.ln1(x), rope_freqs, start_pos)
+            x = x + self.attn(
+                self.ln1(x), self.rope_cos, self.rope_sin, start_pos
+            )
         else:
             x = x + self.attn(self.ln1(x))
 
