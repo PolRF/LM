@@ -83,7 +83,7 @@ def scheduler():
                 # Already trained
                 if (
                     seq == 4096
-                    and th in [10_000, 100_000, 500_000]
+                    and th in [10_000, 100_000, 500_000, 2_000_000]
                     and model_class == "gpt-small"
                 ):
                     continue
