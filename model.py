@@ -62,15 +62,17 @@ def _rope_frequency(
     ), "The dimension of the frequency tensor must be even"
     # -2i in vector form is the same of vector starting from 0, until dim with 2 steps
     # [: (head_dim // 2)] is used subtract the last element if the head_dim is odd
-    numerator = torch.arange(0, head_dim, 2)[: (head_dim // 2)].float()
+    numerator = torch.arange(0, head_dim, 2, dtype=torch.float32)[
+        : (head_dim // 2)
+    ]
     frequencies = 1.0 / (theta ** (numerator / head_dim)).to(device)
 
     # Position
-    p = torch.arange(seq_len, device=device)
+    p = torch.arange(seq_len, device=device, dtype=torch.float32)
 
     # Multiply each theta by the position (outer product)
     # This will create a matrix (seq_len, head_dim/2)
-    frequencies = torch.outer(p, frequencies).float()
+    frequencies = torch.outer(p, frequencies)
 
     # define the same matrix with all 1
     matrix = torch.ones_like(frequencies)
