@@ -24,7 +24,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
 BASE_DATA_PATH = "./data/"
-BASE_CHECKPOINT_PATH = "./checkpoints/"
+BASE_CHECKPOINT_PATH = "./checkpoints_sin_cos/"
 BASE_PROFILER_PATH = "./profiler/"
 
 
@@ -69,7 +69,7 @@ class TrainGPTM:
         torch.set_float32_matmul_precision("high")
 
         # Initial vars
-        self.max_iters = 50_000
+        self.max_iters = 200_000
         self.eval_interval = 1000
         self.iter_num = 0
         self.best_val_loss = 1e9
@@ -458,17 +458,17 @@ if __name__ == "__main__":
     os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     tr_config = TrainConfig(
-        batch_size=4,
+        batch_size=64,
         block_size=1024,
         init_lr=6e-4,  # for lr decay
         lr=6e-4,
         min_lr=6e-5,
-        warmup_iters=10_000,
-        lr_decay_iters=100_000,
+        warmup_iters=20_000,
+        lr_decay_iters=200_000,
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=16,
+        gradient_accumulation_steps=1,
         loading_mode="from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
@@ -476,17 +476,17 @@ if __name__ == "__main__":
         compile=True,
         grad_clip=1.0,
         profile=False,
-        wandb_name="gpt2-GPT-XL",
+        wandb_name="Rope-sin-cos",
     )
     model_config = ModelConfig(
         vocab_size=50304,
         block_size=1024,
-        n_embd=2560,
-        n_layer=32,
+        n_embd=768,
+        n_layer=12,
         device=tr_config.device,
         dropout=0.0,
-        n_head=32,
-        n_kv_heads=8,
+        n_head=16,
+        n_kv_heads=4,
         pos_emb="rope",
         num_experts=1,
         num_experts_per_token=None,
