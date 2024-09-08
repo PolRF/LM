@@ -14,7 +14,7 @@ from model import GPTLM, ModelConfig
 
 
 # Map the names to gpt2
-def check_mapping(gpt2_key_name: str):
+def _check_mapping(gpt2_key_name: str):
     gpt2_key_name = gpt2_key_name.replace("transformer.", "")
     gpt2_key_name = gpt2_key_name.replace("wte", "token_embedding")
     gpt2_key_name = gpt2_key_name.replace("h.", "blocks.")
@@ -71,7 +71,7 @@ def from_pretrained_rope_gpt2(
     ), f"mismatched keys: {len(sd_keys_hf)} != {len(my_model_keys)}"
 
     for k in sd_keys_hf:
-        k_mine = check_mapping(k)
+        k_mine = _check_mapping(k)
         if any(k.endswith(w) for w in transposed):
             # special treatment for the Conv1D weights we need to transpose
             assert sd_hf[k].shape[::-1] == sd[k_mine].shape

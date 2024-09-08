@@ -4,7 +4,7 @@ import torch
 import os
 
 
-def load_tokens(filename):
+def _load_tokens(filename):
     npt = np.load(filename, mmap_mode="r")
     npt = npt.astype(np.int32, copy=False)  # added after video
     ptt = torch.from_numpy(npt) 
@@ -50,7 +50,7 @@ class FineWebEduDataLoader(DataLoader):
     def reset(self):
         # state, init at shard zero
         self.current_shard = 0
-        self.tokens = load_tokens(self.shards[self.current_shard])
+        self.tokens = _load_tokens(self.shards[self.current_shard])
         self.current_position = self.B * self.T * self.process_rank
 
     def next_batch(self):
@@ -67,6 +67,6 @@ class FineWebEduDataLoader(DataLoader):
             self.tokens
         ):
             self.current_shard = (self.current_shard + 1) % len(self.shards)
-            self.tokens = load_tokens(self.shards[self.current_shard])
+            self.tokens = _load_tokens(self.shards[self.current_shard])
             self.current_position = B * T * self.process_rank
         return x, y
