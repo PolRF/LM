@@ -6,18 +6,7 @@ This repository is mainly created for educational purposes (mainly my own), with
 
 The main goal of this project is to provide a comprehensive and detailed implementation of the most recent and popular language models, such as GPT-2, Llama 2, Mistral, and others, as well as to provide a detailed explanation of the underlying concepts and mechanisms of these models.
 
-As a GPU poor enthusiast, most of the training runs are done on a A6000 GPU with 48GB of memory running less than 24 hours.
-
-## Achieved Goals
-  Improved GPT-2 model:
-  - Context: Implemented the GPT-2 model with some major improvements: GeLU activation function, RoPE (Relative Positional Encoding), GQA, flash attention and learning rate decay while training. 14h of training (250k steps).
-  - Dataset: Fineweb dataset (edu) 10B
-  - Infra: AWS p5.48xlarge instance (8xH100 GPUs).
-  - Model params: 113M
-  - Results: Hellaswag evaluation accuracy of 32.03%. val loss: 2.978, train loss: 2.787
-  - Conclusions: Improved the Andrej Karpathy's benchmark of 29.55% to 32.03% on hellaswag eval (repo) with less params.
-
-## Results:
+## Experiments:
 The results of the experiments can be found in the [TESTS.md](TESTS.md) file.
 
 ## Future Work and TODO's
@@ -87,20 +76,15 @@ The following are among the planned future works and 'To Do' items for this proj
 - [x] Implement distributed data parallelism
 - [x] Implement some evalutations --> Hellaswag
 - [ ] eleuther harness reports
-- [ ] Implement changing batch size during training and validation
 - [ ] Check param initialization
-- [ ] Re-read GPT-3 paper to improve the training of the model (https://arxiv.org/abs/2005.14165)
-- [ ] New SOTA AdamW optimizer
-- [ ] Implement caching for the attention mechanism (across the model)
-- [ ] Implement gradient checkpointing to reduce memory usage
 - [ ] Implement early stopping
 - [ ] Take a look at pytorch lightning
-- [ ] Implement model parallelism (?)
-- [ ] Implement pipeline parallelism (?)
+- [ ] Implement model parallelism
+- [ ] Implement pipeline parallelism
 
 ### Data:
-- [x] Traing with the Fineweb dataset (edu) 10B
-- [ ] Train using a finetuning instruction dataset
+- [x] Train with the Fineweb dataset (edu) 10B
+- [ ] Train using an instruction dataset
 - [ ] Read Efficient Training of Language Models to Fill in the Middle https://arxiv.org/pdf/2207.14255
 - [ ] Read WizardLM (https://arxiv.org/pdf/2304.12244)
 
