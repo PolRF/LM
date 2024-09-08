@@ -5,9 +5,9 @@ import os
 
 
 def load_tokens(filename):
-    npt = np.load(filename)
-    npt = npt.astype(np.int32)  # added after video
-    ptt = torch.tensor(npt, dtype=torch.long)
+    npt = np.load(filename, mmap_mode="r")
+    npt = npt.astype(np.int32, copy=False)  # added after video
+    ptt = torch.from_numpy(npt) 
     return ptt
 
 

@@ -458,7 +458,7 @@ if __name__ == "__main__":
     os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     tr_config = TrainConfig(
-        batch_size=64,
+        batch_size=1,
         block_size=1024,
         init_lr=6e-4,  # for lr decay
         lr=6e-4,
@@ -468,11 +468,11 @@ if __name__ == "__main__":
         weight_decay=1e-1,
         device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         # dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16',
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=2,
         loading_mode="from_scratch",
         checkpoint_output_dir=BASE_CHECKPOINT_PATH,
         always_save_checkpoint=False,
-        ddp=True,
+        ddp=False,
         compile=True,
         grad_clip=1.0,
         profile=False,

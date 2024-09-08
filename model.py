@@ -91,56 +91,33 @@ def apply_rope(
     """
     Apply the rotary position embedding to the input tensor.
     """
-    # # Reshape the input tensor to a complex tensor
-    # # (B, Seq_Len, Head_Dim) -> (B, Seq_Len, Head_Dim/2, 2)
-    # # x.shape[:-1] is the batch and the sequence length (get the first two dimensions of the tensor)
-    # # -1 is used as a placeholder that will automatically be calculated based on the size of the tensor and the remaining dimensions
-    # # 2 is the last dimension of the tensor. We will get a vector with size 2 for each element in the tensor
-    # # view_as_complex() will convert the tensor to a complex tensor --> The 2 elements specified before,
-    # # will be used as the real and imaginary part of the complex number
-    # q_complex = torch.view_as_complex(q.float().reshape(*q.shape[:-1], -1, 2))
-    # k_complex = torch.view_as_complex(k.float().reshape(*k.shape[:-1], -1, 2))
-
-    # # Multiply the input tensor by the frequency tensor to apply the rotary position embedding
-    # # Final shape will be (B, Seq_Len, H, Head_Dim/2)
-    # q_rotated = q_complex * freqs_complex
-    # k_rotated = k_complex * freqs_complex
-
-    # # Convert again to real tensor
-    # q_out = torch.view_as_real(q_rotated)
-    # k_out = torch.view_as_real(k_rotated)
-    # # Reshape the tensor to the original shape
-    # # (B, Seq_Len, H, Head_Dim/2, 2) -> (B, Seq_Len, H, Head_Dim)
-    # q_out = q_out.reshape(*q.shape)
-    # k_out = k_out.reshape(*k.shape)
-    # # Convert the tensor to the original type and move it to the original device
-    # return q_out.type_as(q).to(device), k_out.type_as(k).to(device)
-
+    q_shape = q.shape
+    k_shape = k.shape
+    q_batch_size, q_n_heads, q_seq_len, q_head_dim = q_shape
+    k_batch_size, k_n_heads, k_seq_len, k_head_dim = k_shape
     # Extract dimensions
-    batch_size, seq_len, n_heads, head_dim = q.shape
-    assert head_dim % 2 == 0, "Head dimension must be even"
-    cos, sin = freqs_cos, freqs_sin
-    # Reshape q and k to separate the last dimension into two halves
-    q_reshaped = q.view(batch_size, seq_len, n_heads, 2, -1)
-    k_reshaped = k.view(batch_size, seq_len, n_heads, 2, -1)
+    assert q_n_heads % 2 == 0, "Head dimension must be even"
 
-    # Extract even and odd indices
-    q_even, q_odd = q_reshaped[:, :, :, 0], q_reshaped[:, :, :, 1]
-    k_even, k_odd = k_reshaped[:, :, :, 0], k_reshaped[:, :, :, 1]
+    q = q.view(q_batch_size, q_n_heads, q_seq_len, q_head_dim // 2, 2)
+    k = k.view(k_batch_size, k_n_heads, k_seq_len, k_head_dim // 2, 2)
 
-    # Compute cosine and sine
+    # Reshape freqs_cos and freqs_sin
+    freqs_cos = freqs_cos.view(1, 1, q_seq_len, q_head_dim // 2)
+    freqs_sin = freqs_sin.view(1, 1, q_seq_len, q_head_dim // 2)
 
-    # Apply rotation
-    q_out_even = q_even * cos - q_odd * sin
-    q_out_odd = q_odd * cos + q_even * sin
-    k_out_even = k_even * cos - k_odd * sin
-    k_out_odd = k_odd * cos + k_even * sin
+    q_even, q_odd = q[..., 0], q[..., 1]
+    k_even, k_odd = k[..., 0], k[..., 1]
 
-    # Concatenate even and odd parts
-    q_out = torch.stack([q_out_even, q_out_odd], dim=3).view(*q.shape)
-    k_out = torch.stack([k_out_even, k_out_odd], dim=3).view(*k.shape)
+    # Apply RoPE
+    q_out_even = q_even * freqs_cos - q_odd * freqs_sin
+    q_out_odd = q_odd * freqs_cos + q_even * freqs_sin
+    k_out_even = k_even * freqs_cos - k_odd * freqs_sin
+    k_out_odd = k_odd * freqs_cos + k_even * freqs_sin
 
-    # Convert the tensor to the original type and move it to the original device
+    # Combine and reshape back
+    q_out = torch.stack([q_out_even, q_out_odd], dim=-1).view(*q_shape)
+    k_out = torch.stack([k_out_even, k_out_odd], dim=-1).view(*k_shape)
+
     return q_out.type_as(q).to(device), k_out.type_as(k).to(device)
 
 
@@ -311,7 +288,6 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
         k, v = self.kv(x).chunk(2, dim=-1)
         k = k.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
-
         with torch.autocast(enabled=False, device_type=str("cuda")):
             q, k = apply_rope(q, k, rope_cos, rope_sin, str(x.device))
 
@@ -661,7 +637,7 @@ class GPTLM(nn.Module):
             # Flatten the logits and the targets
             logits = logits.view(B * Seq_len, C)
             targets = targets.view(B * Seq_len)
-            loss = F.cross_entropy(logits, targets)
+            loss = F.cross_entropy(logits, targets.long())
         return logits, loss
 
     def generate(self, idx, max_new_tokens):
