@@ -48,6 +48,7 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Read https://arxiv.org/abs/2405.17247
 - [ ] Distillation
 - [ ] Submit LLM to hugging face open llm leaderboard https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
+- [ ] Implement entropyx sampler
 
 ### Fine-tuning improvements:
 
