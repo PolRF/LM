@@ -197,6 +197,7 @@ if __name__ == "__main__":
     )
     reward_model = GPTLMRewardModel(model)
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    tokenizer.pad_token = tokenizer.eos_token
     trainer = CustomRewardTrainer(reward_model, tokenizer)
     data = prepare_data()
     train_dataset = PreferenceDataset(data["train"]["chosen"], data["train"]["rejected"], tokenizer)
