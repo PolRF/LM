@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -234,12 +235,13 @@ def train(rank, flags):
             xm.master_print(f"Starting Epoch {epoch + 1}/{flags['num_epochs']}")
 
         for batch_idx, batch in enumerate(train_loader):
+            time_0 = time.time()
             loss = trainer.train_step(batch)
             epoch_losses.append(loss)
 
             # Log progress for the master process
             if xm.is_master_ordinal() and batch_idx % 10 == 0:  # Log every 10 batches
-                xm.master_print(f"Epoch {epoch + 1}, Batch {batch_idx}, Loss: {loss:.4f}")
+                xm.master_print(f"Epoch {epoch + 1}, Batch {batch_idx}, Loss: {loss:.4f}, Time: {time.time() - time_0:.4f}s")
         
         avg_loss = np.mean(epoch_losses)
         if xm.is_master_ordinal():
