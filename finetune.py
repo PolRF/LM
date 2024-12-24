@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
-from typing import List, Tuple, Dict
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import List, Dict
 import numpy as np
 from tqdm import tqdm
-from tiktoken import Encoding
-import tiktoken
+import torch_xla.core.xla_model as xm
+import torch_xla.distributed.xla_multiprocessing as xmp
+import torch_xla.distributed.parallel_loader as pl
 from data.RLHF.prepare import prepare_data
 from model import GPTLMRewardModel, GPTLM
 
@@ -190,30 +191,57 @@ class CustomRewardTrainer:
         torch.save(self.model.state_dict(), path)
 
 
-if __name__ == "__main__":
-    # First load the pretrained weights
+def train(rank, flags):
+    # Load the pretrained weights
     pretrained_model = AutoModelForCausalLM.from_pretrained(
         "polrf/GPT2-GQA-RoPe", trust_remote_code=True
     )
     config = pretrained_model.config
-    import torch_xla.core.xla_model as xm
-    config.device = xm.xla_device()
+    device = xm.xla_device()
+    
     # Initialize your updated GPTLM class
     new_model = GPTLM(config)
-    # Load the pretrained weights into your model
     new_model.load_state_dict(pretrained_model.state_dict(), strict=False)
     
     # Create the reward model using your updated GPTLM
     reward_model = GPTLMRewardModel(new_model)
+    reward_model.to(device)
     
     # Rest of the initialization
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
-    trainer = CustomRewardTrainer(reward_model, tokenizer, device="xla")
+    trainer = CustomRewardTrainer(reward_model, tokenizer, device=device)
+    
+    # Prepare data
     data = prepare_data()
     train_dataset = PreferenceDataset(data["train"]["chosen"], data["train"]["rejected"], tokenizer)
     eval_dataset = PreferenceDataset(data["test"]["chosen"], data["test"]["rejected"], tokenizer)
-    trainer.train(train_dataset, eval_dataset=eval_dataset)
+    
+    # Use XLA's parallel loader for data
+    train_loader = pl.ParallelLoader(DataLoader(train_dataset, batch_size=flags['batch_size'], shuffle=True), [device]).per_device_loader(device)
+    eval_loader = pl.ParallelLoader(DataLoader(eval_dataset, batch_size=flags['batch_size']), [device]).per_device_loader(device)
+    
+    # Training loop
+    for epoch in range(flags['num_epochs']):
+        epoch_losses = []
+        for batch in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{flags['num_epochs']}"):
+            loss = trainer.train_step(batch)
+            epoch_losses.append(loss)
+        
+        avg_loss = np.mean(epoch_losses)
+        print(f"Epoch {epoch + 1}/{flags['num_epochs']}, Average Loss: {avg_loss:.4f}")
+        
+        # Evaluation
+        eval_accuracy = trainer.evaluate(eval_loader)
+        print(f"Evaluation Accuracy: {eval_accuracy:.4f}")
+
+
+if __name__ == "__main__":
+    flags = {
+        'batch_size': 8,
+        'num_epochs': 3
+    }
+    xmp.spawn(train, args=(flags,), nprocs=4, start_method='fork')
     
 
 
