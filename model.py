@@ -681,6 +681,8 @@ class GPTLMRewardModel(nn.Module):
         self.reward_head.requires_grad = True
 
     def forward(self, idx):
+        # print the device
+        print(f"Device: {idx.device}")
         _, _, logits = self.model(idx)
         reward = self.reward_head(logits[:, -1, :])
         return reward
