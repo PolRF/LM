@@ -250,7 +250,7 @@ def train(rank, flags):
         if xm.is_master_ordinal():
             logger.info(f"Evaluation Accuracy: {eval_accuracy:.4f}")
 
-    trainer.save_model("reward_model.cpt")
+    trainer.save_model("reward_model.pt")
 if __name__ == "__main__":
     flags = {
         'batch_size': 8,
