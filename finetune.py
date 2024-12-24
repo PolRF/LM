@@ -209,11 +209,11 @@ if __name__ == "__main__":
     # Rest of the initialization
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
-    trainer = CustomRewardTrainer(reward_model, tokenizer, device="tpu")
+    trainer = CustomRewardTrainer(reward_model, tokenizer, device="xla")
     data = prepare_data()
     train_dataset = PreferenceDataset(data["train"]["chosen"], data["train"]["rejected"], tokenizer)
     eval_dataset = PreferenceDataset(data["test"]["chosen"], data["test"]["rejected"], tokenizer)
-    trainer.train(train_dataset, eval_dataset=eval_dataset, device="tpu")
+    trainer.train(train_dataset, eval_dataset=eval_dataset)
     
 
 
