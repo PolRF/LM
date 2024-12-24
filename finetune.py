@@ -4,12 +4,16 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List, Dict
 import numpy as np
-from tqdm import tqdm
+import logging
 import torch_xla.core.xla_model as xm
 import torch_xla.distributed.xla_multiprocessing as xmp
 import torch_xla.distributed.parallel_loader as pl
 from data.RLHF.prepare import prepare_data
 from model import GPTLMRewardModel, GPTLM
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class PreferenceDataset(Dataset):
     def __init__(
@@ -224,18 +228,29 @@ def train(rank, flags):
     # Training loop
     for epoch in range(flags['num_epochs']):
         epoch_losses = []
-        for batch in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{flags['num_epochs']}"):
+        
+        # Log progress for the master process
+        if xm.is_master_ordinal():
+            logger.info(f"Starting Epoch {epoch + 1}/{flags['num_epochs']}")
+
+        for batch_idx, batch in enumerate(train_loader):
             loss = trainer.train_step(batch)
             epoch_losses.append(loss)
+
+            # Log progress for the master process
+            if xm.is_master_ordinal() and batch_idx % 10 == 0:  # Log every 10 batches
+                logger.info(f"Epoch {epoch + 1}, Batch {batch_idx}, Loss: {loss:.4f}")
         
         avg_loss = np.mean(epoch_losses)
-        print(f"Epoch {epoch + 1}/{flags['num_epochs']}, Average Loss: {avg_loss:.4f}")
+        if xm.is_master_ordinal():
+            logger.info(f"Epoch {epoch + 1}/{flags['num_epochs']}, Average Loss: {avg_loss:.4f}")
         
         # Evaluation
         eval_accuracy = trainer.evaluate(eval_loader)
-        print(f"Evaluation Accuracy: {eval_accuracy:.4f}")
+        if xm.is_master_ordinal():
+            logger.info(f"Evaluation Accuracy: {eval_accuracy:.4f}")
 
-
+    trainer.save_model("reward_model.cpt")
 if __name__ == "__main__":
     flags = {
         'batch_size': 8,
@@ -246,3 +261,4 @@ if __name__ == "__main__":
 
 
 
+### Epoch 1/3:   0%|  | 5/20100 [05:27<439:18:19, 78.70s/it]
