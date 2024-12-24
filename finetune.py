@@ -193,9 +193,16 @@ class CustomRewardTrainer:
 
 
 if __name__ == "__main__":
-    # First load the pretrained weights
+    # Disable XLA
+    import os
+    os.environ['XLA_USE_BF16'] = "0"
+    os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = "0"
+    
+    # First load the pretrained weights with specific config to avoid XLA checks
     pretrained_model = AutoModelForCausalLM.from_pretrained(
-        "polrf/GPT2-GQA-RoPe", trust_remote_code=True
+        "polrf/GPT2-GQA-RoPe",
+        trust_remote_code=True,
+        attn_implementation="eager"  # Explicitly use eager implementation instead of SDPA
     )
     
     # Initialize your updated GPTLM class
@@ -209,7 +216,7 @@ if __name__ == "__main__":
     # Rest of the initialization
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
-    trainer = CustomRewardTrainer(reward_model, tokenizer, device="tpu")
+    trainer = CustomRewardTrainer(reward_model, tokenizer)
     data = prepare_data()
     train_dataset = PreferenceDataset(data["train"]["chosen"], data["train"]["rejected"], tokenizer)
     eval_dataset = PreferenceDataset(data["test"]["chosen"], data["test"]["rejected"], tokenizer)
