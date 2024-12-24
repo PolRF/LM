@@ -641,8 +641,6 @@ class GPTLM(nn.Module):
             logits = logits.view(B * Seq_len, C)
             targets = targets.view(B * Seq_len)
             loss = F.cross_entropy(logits, targets.long())
-        # print the device
-        print(f"Device: {x.device}")
         return logits, loss, x
 
     def generate(self, idx, max_new_tokens):
@@ -683,8 +681,6 @@ class GPTLMRewardModel(nn.Module):
         self.reward_head.requires_grad = True
 
     def forward(self, idx):
-        # print the device
-        print(f"Device: {idx.device}")
         _, _, logits = self.model(idx)
         reward = self.reward_head(logits[:, -1, :])
         return reward
