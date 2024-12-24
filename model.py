@@ -560,7 +560,10 @@ class AttentionBlock(nn.Module):
         # (a better implementation)
         if self.use_rope:
             x = x + self.attn(
-                self.ln1(x), self.rope_cos[:Seq_len], self.rope_sin[:Seq_len], start_pos
+                self.ln1(x),
+                self.rope_cos[:Seq_len],
+                self.rope_sin[:Seq_len],
+                start_pos,
             )
         else:
             x = x + self.attn(self.ln1(x))
@@ -638,7 +641,7 @@ class GPTLM(nn.Module):
             logits = logits.view(B * Seq_len, C)
             targets = targets.view(B * Seq_len)
             loss = F.cross_entropy(logits, targets.long())
-        return logits, loss
+        return logits, loss, x
 
     def generate(self, idx, max_new_tokens):
         """
@@ -659,6 +662,53 @@ class GPTLM(nn.Module):
             # append sampled index to the running sequence
             idx = torch.cat((idx, idx_next), dim=1)  # (B, T+1)
         return idx
+
+
+class GPTLMRewardModel(nn.Module):
+    def __init__(self, model: GPTLM):
+        super().__init__()
+        self.model = model
+        self.reward_head = nn.Linear(model.config.n_embd, 1)
+
+        # Initialize the weights of the reward head
+        torch.nn.init.normal_(self.reward_head.weight, mean=0.0, std=0.02)
+        torch.nn.init.zeros_(self.reward_head.bias)
+        # Freeze the model
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        # Only the reward head is trainable
+        self.reward_head.requires_grad = True
+
+    def forward(self, idx):
+        _, _, logits = self.model(idx)
+        reward = self.reward_head(logits[:, -1, :])
+        return reward
+
+
+class GPTLMPPO(nn.Module):
+    def __init__(self, model: GPTLM):
+        super().__init__()
+        self.model = model
+        self.value_head = nn.Linear(model.config.n_embd, 1)
+        self.policy_head = nn.Linear(
+            model.config.n_embd, model.config.vocab_size
+        )
+
+        # Initialize the weights of the value and policy head
+        self._init_weights(self.value_head)
+        self._init_weights(self.policy_head)
+
+    def _init_weights(self, module):
+        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        if module.bias is not None:
+            torch.nn.init.zeros_(module.bias)
+
+    def forward(self, idx):
+        logits, _, _ = self.model(idx)
+        value = self.value_head(logits[:, -1, :])
+        policy = self.policy_head(logits[:, -1, :])
+        return value, policy
 
 
 ################### HUGGING FACE ADAPTER ####################

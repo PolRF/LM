@@ -50,12 +50,6 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Submit LLM to hugging face open llm leaderboard https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
 - [ ] Implement entropyx sampler
 
-### Fine-tuning improvements:
-
-- [x] Load pre-trained models
-- [ ] Implement LoRA
-- [ ] Implement QLoRA
-
 ### Training improvements:
 
 - [x] Implement flash attention to speed up training
@@ -82,6 +76,16 @@ The following are among the planned future works and 'To Do' items for this proj
 - [ ] Take a look at pytorch lightning
 - [ ] Implement model parallelism
 - [ ] Implement pipeline parallelism
+
+### Fine tuning:
+
+- [ ] Reward model fine-tuning
+- [ ] Supervised fine-tuning
+- [ ] RL fine-tuning (PPO)
+- [ ] Layer wise learning rate optimization
+- [ ] Different model freezing strategies
+- [ ] Implement LoRA
+- [ ] Implement QLoRA
 
 ### Data:
 - [x] Train with the Fineweb dataset (edu) 10B

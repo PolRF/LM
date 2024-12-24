@@ -258,7 +258,7 @@ class TrainGPTM:
                 device_type="cuda",
                 dtype=torch.bfloat16,
             ):
-                logits, loss = self.model(x, y)
+                logits, loss, _ = self.model(x, y)
             loss = loss / val_loss_steps
             val_loss_accum += loss.detach()
         return val_loss_accum
@@ -316,7 +316,7 @@ class TrainGPTM:
                     == self.tr_config.gradient_accumulation_steps - 1
                 )
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                logits, loss = self.model(x, y)
+                logits, loss, _ = self.model(x, y)
 
             loss = loss / self.tr_config.gradient_accumulation_steps
             self.loss_accum += loss.detach()
@@ -358,7 +358,7 @@ class TrainGPTM:
             # get the logits
             with torch.no_grad():
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                    logits, loss = self.model(tokens)
+                    logits, loss, _ = self.model(tokens)
                 pred_norm = get_most_likely_row(tokens, mask, logits)
             num_total += 1
             num_correct_norm += int(pred_norm == label)
