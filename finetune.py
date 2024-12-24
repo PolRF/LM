@@ -193,7 +193,7 @@ class CustomRewardTrainer:
 if __name__ == "__main__":
     # Load the model from HF
     model: GPTLM= AutoModelForCausalLM.from_pretrained(
-        "polrf/GPT2-GQA-RoPe", num_labels=1
+        "polrf/GPT2-GQA-RoPe", num_labels=1, trust_remote_code=True
     )
     reward_model = GPTLMRewardModel(model)
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
