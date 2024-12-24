@@ -231,7 +231,7 @@ def train(rank, flags):
         
         # Log progress for the master process
         if xm.is_master_ordinal():
-            logger.info(f"Starting Epoch {epoch + 1}/{flags['num_epochs']}")
+            xm.master_print(f"Starting Epoch {epoch + 1}/{flags['num_epochs']}")
 
         for batch_idx, batch in enumerate(train_loader):
             loss = trainer.train_step(batch)
@@ -239,24 +239,28 @@ def train(rank, flags):
 
             # Log progress for the master process
             if xm.is_master_ordinal() and batch_idx % 10 == 0:  # Log every 10 batches
-                logger.info(f"Epoch {epoch + 1}, Batch {batch_idx}, Loss: {loss:.4f}")
+                xm.master_print(f"Epoch {epoch + 1}, Batch {batch_idx}, Loss: {loss:.4f}")
         
         avg_loss = np.mean(epoch_losses)
         if xm.is_master_ordinal():
-            logger.info(f"Epoch {epoch + 1}/{flags['num_epochs']}, Average Loss: {avg_loss:.4f}")
+            xm.master_print(f"Epoch {epoch + 1}/{flags['num_epochs']}, Average Loss: {avg_loss:.4f}")
         
         # Evaluation
         eval_accuracy = trainer.evaluate(eval_loader)
         if xm.is_master_ordinal():
-            logger.info(f"Evaluation Accuracy: {eval_accuracy:.4f}")
+            xm.master_print(f"Evaluation Accuracy: {eval_accuracy:.4f}")
 
-    trainer.save_model("reward_model.pt")
+    # Save the model
+    if xm.is_master_ordinal():
+        trainer.save_model("reward_model.pt")
+        xm.master_print("Model saved to reward_model.pt")
+
 if __name__ == "__main__":
     flags = {
         'batch_size': 8,
         'num_epochs': 3
     }
-    xmp.spawn(train, args=(flags,), nprocs=4, start_method='fork')
+    xmp.spawn(train, args=(flags,), nprocs=1, start_method='fork')
     
 
 
