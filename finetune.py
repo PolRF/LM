@@ -11,6 +11,7 @@ import torch_xla.distributed.xla_multiprocessing as xmp
 import torch_xla.distributed.parallel_loader as pl
 from data.RLHF.prepare import prepare_data
 from model import GPTLMRewardModel, GPTLM
+import wandb
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -197,6 +198,10 @@ class CustomRewardTrainer:
 
 
 def train(rank, flags):
+    # Initialize wandb
+    if xm.is_master_ordinal():
+        wandb.init(project="gpt2-gqa-reward-model", entity="polrf", config=flags)
+
     # Load the pretrained weights
     pretrained_model = AutoModelForCausalLM.from_pretrained(
         "polrf/GPT2-GQA-RoPe", trust_remote_code=True
@@ -242,15 +247,24 @@ def train(rank, flags):
             # Log progress for the master process
             if xm.is_master_ordinal() and batch_idx % 10 == 0:  # Log every 10 batches
                 xm.master_print(f"Epoch {epoch + 1}, Batch {batch_idx}, Loss: {loss:.4f}, Time: {time.time() - time_0:.4f}s")
-        
+                wandb.log(
+                    {
+                        "iter": batch_idx,
+                        "train/loss": loss,
+                        "time": time.time() - time_0,
+                    }
+                )
+
         avg_loss = np.mean(epoch_losses)
         if xm.is_master_ordinal():
             xm.master_print(f"Epoch {epoch + 1}/{flags['num_epochs']}, Average Loss: {avg_loss:.4f}")
+            wandb.log({"epoch_loss": avg_loss})
         
         # Evaluation
         eval_accuracy = trainer.evaluate(eval_loader)
         if xm.is_master_ordinal():
             xm.master_print(f"Evaluation Accuracy: {eval_accuracy:.4f}")
+            wandb.log({"eval_accuracy": eval_accuracy})
 
     # Save the model
     if xm.is_master_ordinal():
