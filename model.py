@@ -641,6 +641,8 @@ class GPTLM(nn.Module):
             logits = logits.view(B * Seq_len, C)
             targets = targets.view(B * Seq_len)
             loss = F.cross_entropy(logits, targets.long())
+        # print the device
+        print(f"Device: {x.device}")
         return logits, loss, x
 
     def generate(self, idx, max_new_tokens):
