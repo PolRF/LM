@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import List, Tuple, Dict
 import numpy as np
 from tqdm import tqdm
@@ -192,7 +192,7 @@ class CustomRewardTrainer:
 
 if __name__ == "__main__":
     # Load the model from HF
-    model: GPTLM= AutoModelForSequenceClassification.from_pretrained(
+    model: GPTLM= AutoModelForCausalLM.from_pretrained(
         "polrf/GPT2-GQA-RoPe", num_labels=1
     )
     reward_model = GPTLMRewardModel(model)
