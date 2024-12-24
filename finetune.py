@@ -200,7 +200,7 @@ class CustomRewardTrainer:
 def train(rank, flags):
     # Initialize wandb
     if xm.is_master_ordinal():
-        wandb.init(project="gpt2-gqa-reward-model", entity="polrf", config=flags)
+        wandb.init(project="gpt2", name="gpt2-gqa-reward-model", config=flags)
 
     # Load the pretrained weights
     pretrained_model = AutoModelForCausalLM.from_pretrained(
@@ -276,7 +276,7 @@ if __name__ == "__main__":
         'batch_size': 8,
         'num_epochs': 3
     }
-    xmp.spawn(train, args=(flags,), nprocs=1, start_method='fork')
+    xmp.spawn(train, args=(flags,), nprocs=4, start_method='fork')
     
 
 
