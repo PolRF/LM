@@ -67,7 +67,7 @@ class CustomRewardTrainer:
         model: GPTLMRewardModel,
         tokenizer: AutoTokenizer,
         learning_rate: float = 1e-5,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        device: str = "tpu",
     ):
         """
         Initialize the reward model trainer.
@@ -76,10 +76,12 @@ class CustomRewardTrainer:
             model: Instance of GPTLMRewardModel
             tokenizer: Tokenizer for processing text
             learning_rate: Learning rate for training
-            device: Device to use for training
+            device: Device to use for training (default: tpu)
         """
         self.device = device
-        self.model = model.to(device)
+        import torch_xla.core.xla_model as xm
+        self.device = xm.xla_device()
+        self.model = model.to(self.device)
         self.tokenizer = tokenizer
         # Only optimize the reward head parameters
         self.optimizer = torch.optim.AdamW(
@@ -207,11 +209,12 @@ if __name__ == "__main__":
     # Rest of the initialization
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
-    trainer = CustomRewardTrainer(reward_model, tokenizer)
+    trainer = CustomRewardTrainer(reward_model, tokenizer, device="tpu")
     data = prepare_data()
     train_dataset = PreferenceDataset(data["train"]["chosen"], data["train"]["rejected"], tokenizer)
     eval_dataset = PreferenceDataset(data["test"]["chosen"], data["test"]["rejected"], tokenizer)
     trainer.train(train_dataset, eval_dataset=eval_dataset)
+
 
 
 
