@@ -12,7 +12,7 @@ from data.RLHF.prepare import prepare_data
 from model import GPTLMRewardModel, GPTLM
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class PreferenceDataset(Dataset):
