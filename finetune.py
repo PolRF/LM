@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 from typing import List, Tuple, Dict
 import numpy as np
 from tqdm import tqdm
@@ -191,11 +191,20 @@ class CustomRewardTrainer:
 
 
 if __name__ == "__main__":
-    # Load the model from HF
-    model: GPTLM= AutoModelForCausalLM.from_pretrained(
-        "polrf/GPT2-GQA-RoPe", num_labels=1, trust_remote_code=True
+    # First load the pretrained weights
+    pretrained_model = AutoModelForCausalLM.from_pretrained(
+        "polrf/GPT2-GQA-RoPe", trust_remote_code=True
     )
-    reward_model = GPTLMRewardModel(model)
+    
+    # Initialize your updated GPTLM class
+    new_model = GPTLM(pretrained_model.config)
+    # Load the pretrained weights into your model
+    new_model.load_state_dict(pretrained_model.state_dict(), strict=False)
+    
+    # Create the reward model using your updated GPTLM
+    reward_model = GPTLMRewardModel(new_model)
+    
+    # Rest of the initialization
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
     trainer = CustomRewardTrainer(reward_model, tokenizer)
