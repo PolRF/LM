@@ -288,7 +288,7 @@ class DecoderGroupedQueryHeadAttentionRope(nn.Module):
         k, v = self.kv(x).chunk(2, dim=-1)
         k = k.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
-        with torch.autocast(enabled=False, device_type=str("cuda")):
+        with torch.autocast(enabled=False, device_type=str("cuda" if torch.cuda.is_available() else "xla")):
             q, k = apply_rope(q, k, rope_cos, rope_sin, str(x.device))
 
         # Cache the keys and values:

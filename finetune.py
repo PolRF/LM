@@ -67,7 +67,7 @@ class CustomRewardTrainer:
         model: GPTLMRewardModel,
         tokenizer: AutoTokenizer,
         learning_rate: float = 1e-5,
-        device: str = "tpu",
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         """
         Initialize the reward model trainer.
@@ -76,12 +76,10 @@ class CustomRewardTrainer:
             model: Instance of GPTLMRewardModel
             tokenizer: Tokenizer for processing text
             learning_rate: Learning rate for training
-            device: Device to use for training (default: tpu)
+            device: Device to use for training
         """
         self.device = device
-        import torch_xla.core.xla_model as xm
-        self.device = xm.xla_device()
-        self.model = model.to(self.device)
+        self.model = model.to(device)
         self.tokenizer = tokenizer
         # Only optimize the reward head parameters
         self.optimizer = torch.optim.AdamW(
@@ -193,20 +191,15 @@ class CustomRewardTrainer:
 
 
 if __name__ == "__main__":
-    # Disable XLA
-    import os
-    os.environ['XLA_USE_BF16'] = "0"
-    os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = "0"
-    
-    # First load the pretrained weights with specific config to avoid XLA checks
+    # First load the pretrained weights
     pretrained_model = AutoModelForCausalLM.from_pretrained(
-        "polrf/GPT2-GQA-RoPe",
-        trust_remote_code=True,
-        attn_implementation="eager"  # Explicitly use eager implementation instead of SDPA
+        "polrf/GPT2-GQA-RoPe", trust_remote_code=True
     )
-    
+    config = pretrained_model.config
+    import torch_xla.core.xla_model as xm
+    config.device = xm.xla_device()
     # Initialize your updated GPTLM class
-    new_model = GPTLM(pretrained_model.config)
+    new_model = GPTLM(config)
     # Load the pretrained weights into your model
     new_model.load_state_dict(pretrained_model.state_dict(), strict=False)
     
@@ -216,12 +209,12 @@ if __name__ == "__main__":
     # Rest of the initialization
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
-    trainer = CustomRewardTrainer(reward_model, tokenizer)
+    trainer = CustomRewardTrainer(reward_model, tokenizer, device="tpu")
     data = prepare_data()
     train_dataset = PreferenceDataset(data["train"]["chosen"], data["train"]["rejected"], tokenizer)
     eval_dataset = PreferenceDataset(data["test"]["chosen"], data["test"]["rejected"], tokenizer)
-    trainer.train(train_dataset, eval_dataset=eval_dataset)
-
+    trainer.train(train_dataset, eval_dataset=eval_dataset, device="tpu")
+    
 
 
 
